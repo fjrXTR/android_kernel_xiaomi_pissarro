@@ -1,6 +1,7 @@
 /*
   FUSE: Filesystem in Userspace
   Copyright (C) 2001-2008  Miklos Szeredi <miklos@szeredi.hu>
+  Copyright (C) 2021 XiaoMi, Inc.
 
   This program can be distributed under the terms of the GNU GPL.
   See the file COPYING.
@@ -17,6 +18,7 @@
 #include <linux/swap.h>
 #include <linux/falloc.h>
 #include <linux/uio.h>
+#include <mt-plat/mtk_blocktag.h>
 
 static const struct file_operations fuse_direct_io_file_operations;
 
@@ -134,7 +136,7 @@ int fuse_do_open(struct fuse_conn *fc, u64 nodeid, struct file *file,
 		if (!err) {
 			ff->fh = outarg.fh;
 			ff->open_flags = outarg.open_flags;
-
+			fuse_passthrough_setup(fc, ff, &outarg);
 		} else if (err != -ENOSYS || isdir) {
 			fuse_file_free(ff);
 			return err;
@@ -256,6 +258,7 @@ void fuse_release_common(struct file *file, bool isdir)
 	struct fuse_req *req = ff->reserved_req;
 	int opcode = isdir ? FUSE_RELEASEDIR : FUSE_RELEASE;
 
+	fuse_passthrough_release(&ff->passthrough);
 	fuse_prepare_release(ff, file->f_flags, opcode);
 
 	if (ff->flock) {
@@ -826,6 +829,10 @@ static void fuse_send_readpages(struct fuse_req *req, struct file *file)
 	req->out.page_replace = 1;
 	fuse_read_fill(req, file, pos, count, FUSE_READ);
 	req->misc.read.attr_ver = fuse_get_attr_version(fc);
+
+	mtk_btag_pidlog_set_pid_pages(req->pages, req->num_pages,
+				      PIDLOG_MODE_FS_FUSE, false);
+
 	if (fc->async_read) {
 		req->ff = fuse_file_get(ff);
 		req->end = fuse_readpages_end;
@@ -923,6 +930,8 @@ out:
 
 static ssize_t fuse_file_read_iter(struct kiocb *iocb, struct iov_iter *to)
 {
+	struct file *file = iocb->ki_filp;
+	struct fuse_file *ff = file->private_data;
 	struct inode *inode = iocb->ki_filp->f_mapping->host;
 	struct fuse_conn *fc = get_fuse_conn(inode);
 
@@ -938,7 +947,8 @@ static ssize_t fuse_file_read_iter(struct kiocb *iocb, struct iov_iter *to)
 		if (err)
 			return err;
 	}
-
+	if (ff->passthrough.filp)
+		return fuse_passthrough_read_iter(iocb, to);
 	return generic_file_read_iter(iocb, to);
 }
 
@@ -1149,6 +1159,11 @@ static ssize_t fuse_perform_write(struct kiocb *iocb,
 		} else {
 			size_t num_written;
 
+			mtk_btag_pidlog_set_pid_pages(req->pages,
+						      req->num_pages,
+						      PIDLOG_MODE_FS_FUSE,
+						      true);
+
 			num_written = fuse_send_write_pages(req, iocb, inode,
 							    pos, count);
 			err = req->out.h.error;
@@ -1176,6 +1191,7 @@ static ssize_t fuse_perform_write(struct kiocb *iocb,
 static ssize_t fuse_file_write_iter(struct kiocb *iocb, struct iov_iter *from)
 {
 	struct file *file = iocb->ki_filp;
+	struct fuse_file *ff = file->private_data;
 	struct address_space *mapping = file->f_mapping;
 	ssize_t written = 0;
 	ssize_t written_buffered = 0;
@@ -1183,6 +1199,8 @@ static ssize_t fuse_file_write_iter(struct kiocb *iocb, struct iov_iter *from)
 	ssize_t err;
 	loff_t endbyte = 0;
 
+	if (ff->passthrough.filp)
+		return fuse_passthrough_write_iter(iocb, from);
 	if (get_fuse_conn(inode)->writeback_cache) {
 		/* Update size (EOF optimization) and mode (SUID clearing) */
 		err = fuse_update_attributes(mapping->host, file);
@@ -1984,6 +2002,7 @@ static int fuse_write_begin(struct file *file, struct address_space *mapping,
 		goto cleanup;
 success:
 	*pagep = page;
+	mtk_btag_pidlog_set_pid(page, PIDLOG_MODE_FS_FUSE, true);
 	return 0;
 
 cleanup:
