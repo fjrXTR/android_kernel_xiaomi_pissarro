@@ -70,8 +70,7 @@ page_owner=on loop.max_part=7";
 			reg = <0x0000>;
 			enable-method = "psci";
 			clock-frequency = <1701000000>;
-			cpu-idle-states = <&cpuoff_l &clusteroff_l
-						&mcusysoff &s2idle>;
+			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff>;
 		};
 
 		cpu1: cpu@001 {
@@ -80,8 +79,7 @@ page_owner=on loop.max_part=7";
 			reg = <0x0100>;
 			enable-method = "psci";
 			clock-frequency = <1701000000>;
-			cpu-idle-states = <&cpuoff_l &clusteroff_l
-						&mcusysoff &s2idle>;
+			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff>;
 		};
 
 		cpu2: cpu@002 {
@@ -90,8 +88,7 @@ page_owner=on loop.max_part=7";
 			reg = <0x0200>;
 			enable-method = "psci";
 			clock-frequency = <1701000000>;
-			cpu-idle-states = <&cpuoff_l &clusteroff_l
-						&mcusysoff &s2idle>;
+			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff>;
 		};
 
 		cpu3: cpu@003 {
@@ -100,8 +97,7 @@ page_owner=on loop.max_part=7";
 			reg = <0x0300>;
 			enable-method = "psci";
 			clock-frequency = <1701000000>;
-			cpu-idle-states = <&cpuoff_l &clusteroff_l
-						&mcusysoff &s2idle>;
+			cpu-idle-states = <&cpuoff_l &clusteroff_l &mcusysoff>;
 		};
 
 		cpu4: cpu@100 {
@@ -110,8 +106,7 @@ page_owner=on loop.max_part=7";
 			reg = <0x0400>;
 			enable-method = "psci";
 			clock-frequency = <2171000000>;
-			cpu-idle-states = <&cpuoff_b &clusteroff_b
-						&mcusysoff &s2idle>;
+			cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff>;
 		};
 
 		cpu5: cpu@101 {
@@ -120,8 +115,7 @@ page_owner=on loop.max_part=7";
 			reg = <0x0500>;
 			enable-method = "psci";
 			clock-frequency = <2171000000>;
-			cpu-idle-states = <&cpuoff_b &clusteroff_b
-						&mcusysoff &s2idle>;
+			cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff>;
 		};
 
 		cpu6: cpu@102 {
@@ -130,8 +124,7 @@ page_owner=on loop.max_part=7";
 			reg = <0x0600>;
 			enable-method = "psci";
 			clock-frequency = <2171000000>;
-			cpu-idle-states = <&cpuoff_b &clusteroff_b
-						&mcusysoff &s2idle>;
+			cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff>;
 		};
 
 		cpu7: cpu@103 {
@@ -140,8 +133,7 @@ page_owner=on loop.max_part=7";
 			reg = <0x0700>;
 			enable-method = "psci";
 			clock-frequency = <2171000000>;
-			cpu-idle-states = <&cpuoff_b &clusteroff_b
-						&mcusysoff &s2idle>;
+			cpu-idle-states = <&cpuoff_b &clusteroff_b &mcusysoff>;
 		};
 
 		cpu-map {
@@ -223,14 +215,6 @@ page_owner=on loop.max_part=7";
 				exit-latency-us = <1200>;
 				min-residency-us = <2600>;
 			};
-			s2idle: s2idle {
-				compatible = "mediatek,idle-state";
-				arm,psci-suspend-param = <0x01010100>;
-				local-timer-stop;
-				entry-latency-us = <500>;
-				exit-latency-us = <1400>;
-				min-residency-us = <4294967295>;
-			};
 		};
 	};
 	disp_leds {
@@ -249,7 +233,7 @@ page_owner=on loop.max_part=7";
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges;
-		suspend-method = "s2idle";
+		suspend-method = "system";
 
 		irq-remain = <&edge_keypad &edge_mdwdt>,
 			     <&level_vpu_core0 &level_vpu_core1>,
@@ -434,7 +418,7 @@ page_owner=on loop.max_part=7";
 			no-map;
 			size = <0 0x450000>;
 			alignment = <0 0x100000>;
-			alloc-ranges = <0 0x50000000 0 0x40000000>;
+			alloc-ranges = <0 0x40000000 0 0x80000000>;
 		};
 
 		wifi_mem: wifi-reserve-memory {
@@ -1335,7 +1319,7 @@ page_owner=on loop.max_part=7";
 			<GIC_SPI 448 IRQ_TYPE_LEVEL_HIGH>;
 		mboxes = <&adsp_common 0>, /*channel 0*/
 			<&adsp_common 1>; /*channel 1*/
-		feature_control_bits = <0x703FF>;
+		feature_control_bits = <0x2703ff>;
 	};
 
 	adsp_core1: adsp_core1@10850000 {
@@ -1967,6 +1951,8 @@ page_owner=on loop.max_part=7";
 			 <0x0870 0x00100000 20>;
 		dqopen = <0x0870 0x00200000 21>,
 			 <0x0870 0x00200000 21>;
+		ckdiv4_ca = <0x0B74 0x00000004 2>,
+			 <0x0B74 0x00000004 2>;
 	};
 
 	dramc_ch0_top0@10230000 {
@@ -3514,7 +3500,6 @@ page_owner=on loop.max_part=7";
 		mdp_rdma2_sw_rst_done = <341>;
 		mdp_rdma1_rst_done = <342>;
 		mdp_rdma0_rst_done = <343>;
-		dre30_hist_sram_start = <1152>;
 	};
 
 	mdp_rdma1: mdp_rdma1@1f007000 {
@@ -4327,9 +4312,7 @@ page_owner=on loop.max_part=7";
 			"MTK_DRM_OPT_MMPATH",
 			"MTK_DRM_OPT_HBM",
 			"MTK_DRM_OPT_VDS_PATH_SWITCH",
-			"MTK_DRM_OPT_LAYER_REC",
-			"MTK_DRM_OPT_CLEAR_LAYER",
-			"MTK_DRM_OPT_LFR";
+			"MTK_DRM_OPT_LAYER_REC";
 
 		helper-value = <0>, /*MTK_DRM_OPT_STAGE*/
 			<1>, /*MTK_DRM_OPT_USE_CMDQ*/
@@ -4367,9 +4350,7 @@ page_owner=on loop.max_part=7";
 			<0>, /*MTK_DRM_OPT_MMPATH*/
 			<0>, /*MTK_DRM_OPT_HBM*/
 			<0>, /*MTK_DRM_OPT_VDS_PATH_SWITCH*/
-			<0>, /*MTK_DRM_OPT_LAYER_REC*/
-			<1>, /*MTK_DRM_OPT_CLEAR_LAYER*/
-			<1>; /*MTK_DRM_OPT_LFR*/
+			<0>; /*MTK_DRM_OPT_LAYER_REC*/
 	};
 
 	disp_mutex0: disp_mutex@14117000 {
@@ -5359,6 +5340,12 @@ page_owner=on loop.max_part=7";
 		mediatek,smi-id = <7>;
 	};
 
+	venc@17020000 {
+		compatible = "mediatek,venc";
+		reg = <0 0x17020000 0 0x10000>;
+		interrupts = <GIC_SPI 308 IRQ_TYPE_LEVEL_HIGH>;
+	};
+
 	jpgenc@17030000 {
 		compatible = "mediatek,jpgenc";
 		reg = <0 0x17030000 0 0x10000>;
@@ -5489,7 +5476,7 @@ page_owner=on loop.max_part=7";
 		mediatek,dec_gce_th_num = <1>;
 		mediatek,enc_gce_th_num = <2>;
 		mboxes = <&gce_mbox 16 0 CMDQ_THR_PRIO_1>,
-			<&gce_mbox 12 0 CMDQ_THR_PRIO_1>,
+			<&gce_mbox 17 0 CMDQ_THR_PRIO_1>,
 			<&gce_mbox 18 0 CMDQ_THR_PRIO_1>,
 			<&gce_mbox_sec 12 0 CMDQ_THR_PRIO_1>;
 		gce-event-names = "venc_eof",
@@ -7336,6 +7323,7 @@ page_owner=on loop.max_part=7";
 		mtk_dsp_fast = <0x5 0xffffffff 0xffffffff 0xffffffff 0x5000>;
 		mtk_dsp_ktv = <0x1 0x8 0x12 0xffffffff 0x10000>;
 		mtk_dsp_capture_raw = <0x1 0xffffffff 0xffffffff 0xffffffff 0x20000>;
+		mtk_dsp_fm = <0x0 0xffffffff 0x10 0xffffffff 0x10000>;
 		mtk_dsp_ver = <0x1>;
 		swdsp_smartpa_process_enable = <0x5>;
 		mtk_dsp_mem_afe = <0x1 0x40000>; /* always enable */

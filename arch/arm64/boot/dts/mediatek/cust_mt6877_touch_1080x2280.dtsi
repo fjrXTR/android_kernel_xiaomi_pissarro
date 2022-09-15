@@ -28,10 +28,10 @@
 		reg = <0x5d>;
 		status = "ok";
 		interrupt-parent = <&pio>;
-		interrupts = <21 IRQ_TYPE_EDGE_FALLING 21 0>;
+		interrupts = <14 IRQ_TYPE_EDGE_FALLING 14 0>;
 		vtouch-supply = <&mt_pmic_vtp_ldo_reg>;
-		goodix,reset-gpio = <&pio 20 0x0>;
-		goodix,irq-gpio = <&pio 21 0x0>;
+		goodix,irq-gpio = <&pio 14 0x0>;
+		goodix,reset-gpio = <&pio 15 0x0>;
 		goodix,irq-flags = <2>; /* 1:rising, 2:falling;*/
 		goodix,panel-max-id = <10>;
 		goodix,panel-max-x = <1080>;
@@ -43,8 +43,8 @@
 		goodix,panel-key-map = <158 172 217>; /*BACK,HOMEPAGE,SEARCH*/
 		goodix,power-on-delay-us = <10000>; /*10ms*/
 		goodix,power-off-delay-us = <5000>;
-		goodix,firmware-version = "6893v01";
-		goodix,config-version = "6893v01";
+		goodix,firmware-version = "6877v01";
+		goodix,config-version = "6877v01";
 		/*goodix,swap-axis;*/
 		/*goodix,x2x;*/
 		/*goodix,y2y;*/
@@ -79,21 +79,21 @@
 
 		goodix,avdd-name = "vtouch";
 		vtouch-supply = <&mt_pmic_vtp_ldo_reg>;
-		goodix,reset-gpio = <&pio 20 0x0>;
-		goodix,irq-gpio = <&pio 21 0x0>;
+		goodix,irq-gpio = <&pio 14 0x0>;
+		goodix,reset-gpio = <&pio 15 0x0>;
 		goodix,irq-flags = <2>; /* 1:rising, 2:falling;*/
 		goodix,panel-max-id = <10>;
 		goodix,panel-max-x = <1080>;
-		goodix,panel-max-y = <2300>;
+		goodix,panel-max-y = <2280>;
 		goodix,panel-max-w = <256>;
 		goodix,panel-max-p = <256>;
 		goodix,input-max-x = <1080>;
-		goodix,input-max-y = <2300>;
+		goodix,input-max-y = <2280>;
 		goodix,panel-key-map = <158 172 217>; /*BACK,HOMEPAGE,SEARCH*/
 		goodix,power-on-delay-us = <10000>; /*10ms*/
 		goodix,power-off-delay-us = <5000>;
-		goodix,firmware-version = "6893v02";
-		goodix,config-version = "6893v02";
+		goodix,firmware-version = "6877v01";
+		goodix,config-version = "6877v01";
 		/*goodix,swap-axis;*/
 		/*goodix,x2x;*/
 		/*goodix,y2y;*/
@@ -113,70 +113,70 @@
 	};
 	ctp_ts_int_active: int_active {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO21__FUNC_GPIO21>;
+			pinmux = <PINMUX_GPIO14__FUNC_GPIO14>;
 			input-enable;
 		};
 	};
 	ctp_ts_reset_active: reset_active {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO20__FUNC_GPIO20>;
+			pinmux = <PINMUX_GPIO15__FUNC_GPIO15>;
 			output-high;
 		};
 	};
 	ctp_ts_int_suspend: int_suspend {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO21__FUNC_GPIO21>;
+			pinmux = <PINMUX_GPIO14__FUNC_GPIO14>;
 			output-low;
 		};
 	};
 	ctp_ts_reset_suspend: reset_suspend {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO20__FUNC_GPIO20>;
+			pinmux = <PINMUX_GPIO15__FUNC_GPIO15>;
 			output-low;
 		};
 	};
 	ctp_ts_i2c_mode: i2cmode_default {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO204__FUNC_SCL0>,
-				<PINMUX_GPIO205__FUNC_SDA0>;
+			pinmux = <PINMUX_GPIO64__FUNC_SCL0>,
+				<PINMUX_GPIO65__FUNC_SDA0>;
 		};
 	};
 	ctp_ts_int_as_gpio: int_high {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO21__FUNC_GPIO21>;
+			pinmux = <PINMUX_GPIO14__FUNC_GPIO14>;
 			output-high;
 		};
 	};
 	ctp_gt9896s_int_active: int1_active {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO21__FUNC_GPIO21>;
+			pinmux = <PINMUX_GPIO14__FUNC_GPIO14>;
 			input-enable;
 		};
 	};
 	ctp_gt9896s_reset_active: reset1_active {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO20__FUNC_GPIO20>;
+			pinmux = <PINMUX_GPIO15__FUNC_GPIO15>;
 			output-high;
 		};
 	};
 	ctp_gt9896s_int_suspend: int1_suspend {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO21__FUNC_GPIO21>;
+			pinmux = <PINMUX_GPIO14__FUNC_GPIO14>;
 			output-low;
 		};
 	};
 	ctp_gt9896s_reset_suspend: reset1_suspend {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO20__FUNC_GPIO20>;
+			pinmux = <PINMUX_GPIO15__FUNC_GPIO15>;
 			output-low;
 		};
 	};
 	ctp_gt9896s_spi_mode: spimode_default {
 		pins_cmd_dat {
-			pinmux = <PINMUX_GPIO18__FUNC_SPI4_C_MI>,
-				<PINMUX_GPIO19__FUNC_SPI4_C_MO>,
-				<PINMUX_GPIO204__FUNC_SPI4_C_CLK>,
-				<PINMUX_GPIO205__FUNC_SPI4_C_CSB>;
+			pinmux = <PINMUX_GPIO12__FUNC_SPI4_MI>,
+				<PINMUX_GPIO13__FUNC_SPI4_MO>,
+				<PINMUX_GPIO64__FUNC_SPI4_CLK>,
+				<PINMUX_GPIO65__FUNC_SPI4_CSB>;
 			drive-strength = <2>;
 		};
 	};
