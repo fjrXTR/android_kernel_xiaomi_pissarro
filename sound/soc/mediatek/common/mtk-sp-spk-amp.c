@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 //
 // Copyright (C) 2018 MediaTek Inc.
+// Copyright (C) 2021 XiaoMi, Inc.
 
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -25,14 +26,26 @@
 #ifdef CONFIG_SND_SOC_MT6660
 #include "../../codecs/mt6660.h"
 #endif /* CONFIG_SND_SOC_MT6660 */
+#ifdef CONFIG_SND_SOC_RT5512
+#include "../../codecs/rt5512.h"
+#endif /* CONFIG_SND_SOC_RT5512 */
 
 #ifdef CONFIG_SND_SOC_TFA9874
 #include "../../codecs/tfa98xx/inc/tfa98xx_ext.h"
 #endif
 
+#ifdef CONFIG_SND_SOC_AA012
+#include "../../codecs/aa012/k6877v1_64_alpha/tfa98xx/inc/tfa98xx_ext.h"
+#endif
+
 #ifdef CONFIG_SND_SOC_AW87339
 #include "aw87339.h"
 #endif
+
+#ifdef CONFIG_SND_SOC_CS35L41
+#include "../../codecs/cs35l41/cs35l41_ext.h"
+#endif
+
 
 #define MTK_SPK_NAME "Speaker Codec"
 #define MTK_SPK_REF_NAME "Speaker Codec Ref"
@@ -60,6 +73,14 @@ static struct mtk_spk_i2c_ctrl mtk_spk_list[MTK_SPK_TYPE_NUM] = {
 		.codec_name = "MT6660_MT_0",
 	},
 #endif /* CONFIG_SND_SOC_MT6660 */
+#ifdef CONFIG_SND_SOC_RT5512
+	[MTK_SPK_MEDIATEK_RT5512] = {
+		.i2c_probe = rt5512_i2c_probe,
+		.i2c_remove = rt5512_i2c_remove,
+		.codec_dai_name = "rt5512-aif",
+		.codec_name = "RT5512_MT_0",
+	},
+#endif /* CONFIG_SND_SOC_RT5512 */
 
 #ifdef CONFIG_SND_SOC_TFA9874
 	[MTK_SPK_NXP_TFA98XX] = {
@@ -68,7 +89,26 @@ static struct mtk_spk_i2c_ctrl mtk_spk_list[MTK_SPK_TYPE_NUM] = {
 		.codec_dai_name = "tfa98xx-aif",
 		.codec_name = "tfa98xx",
 	},
-#endif /* CONFIG_SND_SOC_MT6660 */
+#endif /* CONFIG_SND_SOC_TFA9874 */
+
+#ifdef CONFIG_SND_SOC_AA012
+	[MTK_SPK_NXP_TFA98XX] = {
+		.i2c_probe = tfa98xx_i2c_probe,
+		.i2c_remove = tfa98xx_i2c_remove,
+		.codec_dai_name = "tfa98xx-aif-6-34",
+		.codec_name = "tfa98xx.6-0034",
+	},
+#endif /* CONFIG_SND_SOC_TFA9874 */
+
+#ifdef CONFIG_SND_SOC_CS35L41
+	[MTK_SPK_CS_CS35L41] = {
+		.i2c_probe = cs35l41_i2c_probe,
+		.i2c_remove = cs35l41_i2c_remove,
+		.codec_dai_name = "cs35l41-pcm",
+		.codec_name = "cs35l41",
+	},
+#endif
+
 };
 
 static int mtk_spk_i2c_probe(struct i2c_client *client,
@@ -444,16 +484,18 @@ int mtk_spk_recv_ipi_buf_from_dsp(int8_t *buffer,
 EXPORT_SYMBOL(mtk_spk_recv_ipi_buf_from_dsp);
 
 static const struct i2c_device_id mtk_spk_i2c_id[] = {
-	{ "tfa98xx", 0},
-	{ "speaker_amp", 0},
+	/*{ "tfa98xx", 0},
+	{ "speaker_amp", 0},*/
+	{ "cs35l41", 0},
 	{}
 };
 MODULE_DEVICE_TABLE(i2c, mtk_spk_i2c_id);
 
 #ifdef CONFIG_OF
 static const struct of_device_id mtk_spk_match_table[] = {
-	{.compatible = "nxp,tfa98xx",},
-	{.compatible = "mediatek,speaker_amp",},
+	/*{.compatible = "nxp,tfa98xx",},
+	{.compatible = "mediatek,speaker_amp",},*/
+	{.compatible = "cirrus,cs35l41",},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_spk_match_table);

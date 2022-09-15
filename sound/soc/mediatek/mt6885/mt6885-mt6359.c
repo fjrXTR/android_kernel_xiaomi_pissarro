@@ -3,6 +3,7 @@
  *  mt6885-mt6359.c  --  mt6885 mt6359 ALSA SoC machine driver
  *
  *  Copyright (c) 2019 MediaTek Inc.
+ *  Copyright (C) 2021 XiaoMi, Inc.
  *  Author: Shane Chien <shane.chien@mediatek.com>
  */
 
@@ -1098,6 +1099,13 @@ static struct snd_soc_dai_link mt6885_mt6359_dai_links[] = {
 		.codec_dai_name = "snd-soc-dummy-dai",
 	},
 	{
+		.name = "DSP_Playback_Fm_Adsp",
+		.stream_name = "DSP_Playback_Fm_Adsp",
+		.cpu_dai_name = "audio_task_fm_adsp_dai",
+		.codec_name = "snd-soc-dummy",
+		.codec_dai_name = "snd-soc-dummy-dai",
+	},
+	{
 		.name = "DSP_Playback_A2DP",
 		.stream_name = "DSP_Playback_A2DP",
 		.cpu_dai_name = "audio_task_a2dp_dai",
@@ -1121,6 +1129,16 @@ static struct snd_soc_dai_link mt6885_mt6359_dai_links[] = {
 		.stream_name = "SCP_SPK_Playback",
 		.cpu_dai_name = "snd-soc-dummy-dai",
 		.platform_name = "snd_scp_spk",
+		.codec_name = "snd-soc-dummy",
+		.codec_dai_name = "snd-soc-dummy-dai",
+	},
+#endif
+#if defined(CONFIG_MTK_ULTRASND_PROXIMITY)
+	{
+		.name = "SCP_ULTRA_Playback",
+		.stream_name = "SCP_ULTRA_Playback",
+		.cpu_dai_name = "snd-soc-dummy-dai",
+		.platform_name = "snd_scp_ultra",
 		.codec_name = "snd-soc-dummy",
 		.codec_dai_name = "snd-soc-dummy-dai",
 	},

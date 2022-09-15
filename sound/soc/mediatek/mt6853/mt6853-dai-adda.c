@@ -3,6 +3,7 @@
  *  MediaTek ALSA SoC Audio DAI ADDA Control
  *
  *  Copyright (c) 2019 MediaTek Inc.
+ *  Copyright (C) 2021 XiaoMi, Inc.
  *  Author: Shane Chien <shane.chien@mediatek.com>
  */
 
@@ -153,6 +154,7 @@ static const struct snd_kcontrol_new mtk_adda_dl_ch1_mix[] = {
 	SOC_DAPM_SINGLE_AUTODISABLE("DL4_CH1", AFE_CONN3_1, I_DL4_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("DL5_CH1", AFE_CONN3_1, I_DL5_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("DL6_CH1", AFE_CONN3_1, I_DL6_CH1, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("DL7_CH1", AFE_CONN3_1, I_DL7_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("DL8_CH1", AFE_CONN3_1, I_DL8_CH1, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH3", AFE_CONN3,
 				    I_ADDA_UL_CH3, 1, 0),
@@ -183,6 +185,7 @@ static const struct snd_kcontrol_new mtk_adda_dl_ch2_mix[] = {
 	SOC_DAPM_SINGLE_AUTODISABLE("DL4_CH2", AFE_CONN4_1, I_DL4_CH2, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("DL5_CH2", AFE_CONN4_1, I_DL5_CH2, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("DL6_CH2", AFE_CONN4_1, I_DL6_CH2, 1, 0),
+	SOC_DAPM_SINGLE_AUTODISABLE("DL7_CH2", AFE_CONN4_1, I_DL7_CH2, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("DL8_CH2", AFE_CONN4_1, I_DL8_CH2, 1, 0),
 	SOC_DAPM_SINGLE_AUTODISABLE("ADDA_UL_CH3", AFE_CONN4,
 				    I_ADDA_UL_CH3, 1, 0),
@@ -1133,6 +1136,8 @@ static const struct snd_soc_dapm_route mtk_dai_adda_routes[] = {
 	{"ADDA_DL_CH1", "DL6_CH1", "DL6"},
 	{"ADDA_DL_CH2", "DL6_CH2", "DL6"},
 
+	{"ADDA_DL_CH1", "DL7_CH1", "DL7"},
+	{"ADDA_DL_CH2", "DL7_CH2", "DL7"},
 	{"ADDA_DL_CH1", "DL8_CH1", "DL8"},
 	{"ADDA_DL_CH2", "DL8_CH2", "DL8"},
 
