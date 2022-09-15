@@ -17,7 +17,11 @@
 /* platform info */
 #define MD_GENERATION       (6297)
 #define MD_PLATFORM_INFO    "6297"
+#ifdef CCCI_PLATFORM_MT6877
+#define AP_PLATFORM_INFO    "MT6877"
+#else
 #define AP_PLATFORM_INFO    "MT6853"
+#endif
 #define CCCI_DRIVER_VER     0x20110118
 #define MT6297
 #define _97_REORDER_BAT_PAGE_TABLE_
@@ -53,7 +57,9 @@
 
 /* feature option, always try using platform info first! */
 #ifdef CONFIG_MTK_TINYSYS_SCP_SUPPORT
-//#define FEATURE_SCP_CCCI_SUPPORT
+#ifdef CCCI_PLATFORM_MT6877
+#define FEATURE_SCP_CCCI_SUPPORT
+#endif
 #endif
 /*#define ENABLE_EMI_PROTECTION*/
 /* #define FEATURE_LOW_BATTERY_SUPPORT */
@@ -85,8 +91,9 @@
 #define ENABLE_CPU_AFFINITY
 #define REFINE_BAT_OFFSET_REMOVE
 #define PIT_USING_CACHE_MEM
+#define USING_TX_DONE_KERNEL_THREAD
 
 #define CCCI_USE_DFD_OFFSET_0
-//define CCCI_ENABLE_MPU_MEMORY_API
+
 
 #endif

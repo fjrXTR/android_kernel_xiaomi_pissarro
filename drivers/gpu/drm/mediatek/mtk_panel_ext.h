@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2019 MediaTek Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -15,15 +16,17 @@
 #define __MTK_PANEL_EXT_H__
 
 #include <drm/drm_panel.h>
+#include <drm/mi_disp_notifier.h>
+#include <uapi/drm/mi_disp.h>
 
 #define RT_MAX_NUM 10
 #define ESD_CHECK_NUM 3
 #define MAX_TX_CMD_NUM 20
 #define MAX_RX_CMD_NUM 20
-#define READ_DDIC_SLOT_NUM 4
+#define READ_DDIC_SLOT_NUM (4 * MAX_RX_CMD_NUM)
 #define MAX_DYN_CMD_NUM 20
 
-
+extern struct mi_disp_notifier g_notify_data;
 struct mtk_dsi;
 struct cmdq_pkt;
 struct mtk_panel_para_table {
@@ -80,6 +83,30 @@ struct DSI_RX_DATA_REG {
 	unsigned char byte3;
 };
 
+struct LCM_setting_table {
+	unsigned cmd;
+	unsigned char count;
+	unsigned char para_list[64];
+};
+
+struct LCM_param_read_write {
+	unsigned int read_count;
+	unsigned char read_buffer[64];
+};
+
+struct LCM_mipi_read_write {
+	unsigned int read_enable;
+	unsigned int read_count;
+	unsigned char read_buffer[64];
+	struct LCM_setting_table lcm_setting_table;
+};
+
+struct LCM_led_i2c_read_write {
+	unsigned int read_enable;
+	unsigned int read_count;
+	unsigned char buffer[64];
+};
+
 typedef void (*dcs_write_gce) (struct mtk_dsi *dsi, struct cmdq_pkt *handle,
 				const void *data, size_t len);
 typedef void (*dcs_grp_write_gce) (struct mtk_dsi *dsi, struct cmdq_pkt *handle,
@@ -126,6 +153,11 @@ enum FPS_CHANGE_INDEX {
 	DYNFPS_DSI_VFP = 1,
 	DYNFPS_DSI_HFP = 2,
 	DYNFPS_DSI_MIPI_CLK = 4,
+};
+
+enum LCM_SEND_CMD_MODE {
+	LCM_SEND_IN_CMD = 0,
+	LCM_SEND_IN_VDO,
 };
 
 struct mtk_panel_dsc_params {
@@ -207,6 +239,8 @@ struct dynamic_fps_params {
 	unsigned int vact_timing_fps;
 	unsigned int data_rate;
 	struct dfps_switch_cmd dfps_cmd_table[MAX_DYN_CMD_NUM];
+	enum LCM_SEND_CMD_MODE send_mode;
+	unsigned int send_cmd_need_delay;
 };
 
 struct mtk_panel_params {
@@ -229,11 +263,7 @@ struct mtk_panel_params {
 	unsigned int corner_pattern_height;
 	unsigned int corner_pattern_height_bot;
 	unsigned int corner_pattern_tp_size;
-	unsigned int corner_pattern_tp_size_l;
-	unsigned int corner_pattern_tp_size_r;
 	void *corner_pattern_lt_addr;
-	void *corner_pattern_lt_addr_l;
-	void *corner_pattern_lt_addr_r;
 	unsigned int physical_width_um;
 	unsigned int physical_height_um;
 	unsigned int lane_swap_en;
@@ -242,16 +272,16 @@ struct mtk_panel_params {
 		lane_swap[MIPITX_PHY_PORT_NUM][MIPITX_PHY_LANE_NUM];
 	struct mtk_panel_dsc_params dsc_params;
 	unsigned int output_mode;
-	unsigned int lcm_cmd_if;
 	unsigned int hbm_en_time;
 	unsigned int hbm_dis_time;
 	unsigned int lcm_index;
 	unsigned int wait_sof_before_dec_vfp;
 	unsigned int doze_delay;
 
-//Settings for LFR Function:
+	//Settings for LFR Function:
 	unsigned int lfr_enable;
 	unsigned int lfr_minimum_fps;
+	unsigned int vdo_doze_enable;
 };
 
 struct mtk_panel_ext {
@@ -340,6 +370,34 @@ struct mtk_panel_funcs {
 	void (*hbm_get_state)(struct drm_panel *panel, bool *state);
 	void (*hbm_get_wait_state)(struct drm_panel *panel, bool *wait);
 	bool (*hbm_set_wait_state)(struct drm_panel *panel, bool wait);
+	int (*get_panel_info)(struct drm_panel *panel, char *buf);
+	void (*esd_restore_backlight)(struct drm_panel *panel,
+		void *dsi_drv, dcs_write_gce cb, void *handle);
+	int (*set_backlight_i2c)(unsigned int level);
+	int (*led_i2c_reg_op)(char *buffer, int op, int count);
+	int (*hbm_fod_control)(struct drm_panel *panel, bool en);
+	int (*normal_hbm_control)(struct drm_panel *panel, uint32_t level);
+	int (*setbacklight_control)(struct drm_panel *panel, unsigned int level);
+	int (*set_doze_brightness)(struct drm_panel *panel, int doze_brightness);
+	int (*get_doze_brightness)(struct drm_panel *panel, u32 *doze_brightness);
+	void (*aod_set_state)(struct drm_panel *panel, bool *state);
+	void (*aod_get_state)(struct drm_panel *panel, bool *state);
+	void (*set_nolp)(struct drm_panel *panel);
+	void (*get_unset_doze_brightness)(struct drm_panel *panel, int *state);
+	void (*panel_id_get)(struct drm_panel *panel);
+	void (*panel_set_crc_srgb)(struct drm_panel *panel);
+	void (*panel_set_crc_p3)(struct drm_panel *panel);
+	void (*panel_set_crc_p3_d65)(struct drm_panel *panel);
+	void (*panel_set_crc_p3_flat)(struct drm_panel *panel);
+	void (*panel_set_crc_off)(struct drm_panel *panel);
+	void (*panel_dimming_control)(struct drm_panel *panel, bool en);
+	int (*panel_freq_switch)(struct drm_panel *panel, unsigned int cur_mode, unsigned int dst_mode);
+	void (*hbm_need_delay)(struct drm_panel *panel, bool *state);
+	void (*panel_elvss_control)(struct drm_panel *panel, bool en);
+	void (*get_hbm_solution)(struct drm_panel *panel, int *solution);
+	int (*get_panel_dynamic_fps)(struct drm_panel *panel, u32 *fps);
+	int (*fps_switch_mode_set_cmdq)(struct drm_panel *panel, void *dsi_drv,
+			    dcs_write_gce cb, void *handle);
 };
 
 void mtk_panel_init(struct mtk_panel_ctx *ctx);
@@ -355,5 +413,10 @@ int mtk_panel_ext_create(struct device *dev,
 int mtk_panel_tch_handle_reg(struct drm_panel *panel);
 void **mtk_panel_tch_handle_init(void);
 int mtk_panel_tch_rst(struct drm_panel *panel);
+
+int mtk_ddic_dsi_read_cmd(struct mtk_ddic_dsi_msg *cmd_msg);
+int mtk_ddic_dsi_send_cmd(struct mtk_ddic_dsi_msg *cmd_msg, bool blocking);
+int mtk_ddic_dsi_wait_te_send_cmd(struct mtk_ddic_dsi_msg *cmd_msg,
+			bool blocking);
 
 #endif

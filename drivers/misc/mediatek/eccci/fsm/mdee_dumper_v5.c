@@ -21,8 +21,6 @@
 #include "mdee_dumper_v5.h"
 #include "ccci_config.h"
 #include "ccci_fsm_sys.h"
-#include "ccci_fsm.h"
-#include "modem_sys.h"
 
 #ifndef DB_OPT_DEFAULT
 #define DB_OPT_DEFAULT    (0)	/* Dummy macro define to avoid build error */
@@ -37,8 +35,10 @@ static void ccci_aed_v5(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
 {
 	void *ex_log_addr = NULL;
 	int ex_log_len = 0;
+#if defined(CONFIG_MTK_AEE_FEATURE)
 	void *md_img_addr = NULL;
 	int md_img_len = 0;
+#endif
 	int info_str_len = 0;
 	char *buff;		/*[AED_STR_LEN]; */
 #if defined(CONFIG_MTK_AEE_FEATURE)
@@ -101,10 +101,6 @@ static void ccci_aed_v5(struct ccci_fsm_ee *mdee, unsigned int dump_flag,
 	if (dump_flag & CCCI_AED_DUMP_EX_PKT) {
 		ex_log_addr = (void *)dumper->ex_pl_info;
 		ex_log_len = MD_HS1_FAIL_DUMP_SIZE;
-	}
-	if (dump_flag & CCCI_AED_DUMP_MD_IMG_MEM) {
-		md_img_addr = (void *)mem_layout->md_bank0.base_ap_view_vir;
-		md_img_len = MD_IMG_DUMP_SIZE;
 	}
 	if (buff == NULL) {
 		fsm_sys_mdee_info_notify(aed_str);
@@ -877,7 +873,6 @@ static struct md_ee_ops mdee_ops_v5 = {
 };
 
 #if (MD_GENERATION >= 6297)
-#ifndef MTK_EMI_MPU_DISABLE
 static void mdee_dumper_v5_emimpu_callback(
 		unsigned int emi_id,
 		struct reg_info_t *dump,
@@ -885,18 +880,7 @@ static void mdee_dumper_v5_emimpu_callback(
 {
 	int i, s;
 	int c = 0;
-	int md_state;
 	struct ccci_fsm_ctl *ctl = fsm_get_entity_by_md_id(0);
-	struct ccci_modem *md = ccci_md_get_modem_by_id(0);
-
-	if (md) {
-		md_state = ccci_fsm_get_md_state(md->index);
-		if (md_state != INVALID && md_state != GATED &&
-			md_state != WAITING_TO_STOP) {
-			if (md->ops->dump_info)
-				md->ops->dump_info(md, DUMP_FLAG_REG, NULL, 0);
-		}
-	}
 
 	if (!dump) {
 		CCCI_ERROR_LOG(0, FSM,
@@ -933,7 +917,13 @@ static void mdee_dumper_v5_emimpu_callback(
 	}
 }
 #endif
-#endif
+
+int __weak mtk_emimpu_md_handling_register(void (*md_handling_func)
+	(unsigned int emi_id, struct reg_info_t *dump, unsigned int leng))
+{
+	CCCI_ERROR_LOG(-1, FSM, "[%s] is not supported!\n", __func__);
+	return -1;
+}
 
 int mdee_dumper_v5_alloc(struct ccci_fsm_ee *mdee)
 {
@@ -941,13 +931,11 @@ int mdee_dumper_v5_alloc(struct ccci_fsm_ee *mdee)
 	int md_id = mdee->md_id;
 
 #if (MD_GENERATION >= 6297)
-#ifndef MTK_EMI_MPU_DISABLE
 	if (mtk_emimpu_md_handling_register(
 			&mdee_dumper_v5_emimpu_callback))
 		CCCI_ERROR_LOG(md_id, FSM,
 			"%s: mtk_emimpu_md_handling_register fail\n",
 			__func__);
-#endif
 #endif
 	/* Allocate port_proxy obj and set all member zero */
 	dumper = kzalloc(sizeof(struct mdee_dumper_v5), GFP_KERNEL);

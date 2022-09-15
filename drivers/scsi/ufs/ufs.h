@@ -3,6 +3,7 @@
  *
  * This code is based on drivers/scsi/ufs/ufs.h
  * Copyright (C) 2011-2013 Samsung India Software Operations
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Authors:
  *	Santosh Yaraganavi <santosh.sy@samsung.com>
@@ -413,6 +414,7 @@ enum {
 	UPIU_COMMAND_SET_TYPE_SCSI	= 0x0,
 	UPIU_COMMAND_SET_TYPE_UFS	= 0x1,
 	UPIU_COMMAND_SET_TYPE_QUERY	= 0x2,
+	UPIU_COMMAND_SET_TYPE_VENDOR_HY	= 0xB,
 };
 
 /* UTP Transfer Request Command Offset */
@@ -635,6 +637,7 @@ struct ufs_dev_info {
 	bool f_power_on_wp_en;
 	/* Keeps information if any of the LU is power on write protected */
 	bool is_lu_power_on_wp;
+	u16 wmanufacturerid;
 };
 
 #define MAX_MODEL_LEN 16

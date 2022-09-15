@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -221,6 +222,11 @@ static int parsing_ipi_msg_from_user_space(
 	}
 	if (ipi_msg.data_type != data_type) { /* double check */
 		pr_notice("data_type %d != %d", ipi_msg.data_type, data_type);
+		retval = -1;
+		goto parsing_exit;
+	}
+	if (ipi_msg.source_layer != AUDIO_IPI_LAYER_FROM_HAL) {
+		pr_notice("source_layer %d != %d", ipi_msg.source_layer, AUDIO_IPI_LAYER_FROM_HAL);
 		retval = -1;
 		goto parsing_exit;
 	}

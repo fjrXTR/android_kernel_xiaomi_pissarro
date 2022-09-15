@@ -1,5 +1,6 @@
 #
 # Copyright (C) 2018 MediaTek Inc.
+# Copyright (C) 2021 XiaoMi, Inc.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 2 as
@@ -166,6 +167,7 @@ endif
 obj-y += perf/
 obj-$(CONFIG_MTK_JPEG) += jpeg/
 obj-$(CONFIG_MTK_SPMTWAM) += twam/
+obj-$(CONFIG_MTK_PMSR) += pmsr/
 obj-$(CONFIG_MTK_LOW_POWER_MODULE) += lpm/
 obj-$(CONFIG_MTK_TASK_TURBO) += task_turbo/
 obj-$(CONFIG_MTK_UNIFIED_DEBUG_INTERFACE) += udi/
@@ -173,4 +175,7 @@ obj-y += rps/
 obj-$(CONFIG_MTK_MDDP_SUPPORT) += mddp/
 obj-$(CONFIG_MTK_USB2JTAG_SUPPORT) += usb2jtag/
 obj-y += subpmic/
+obj-$(CONFIG_MTK_GATE_IC) += gate_ic/
 obj-$(CONFIG_MTK_OTP) += otp/
+obj-$(CONFIG_MTK_SDA) += sda/
+obj-$(CONFIG_MTK_ULTRASND_PROXIMITY) += elliptic/

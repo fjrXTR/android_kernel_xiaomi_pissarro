@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -90,11 +91,13 @@ struct mtk_nanohub_device {
 	int32_t acc_config_data[6];
 	int32_t gyro_config_data[12];
 	int32_t mag_config_data[9];
-	int32_t light_config_data[1];
+	int32_t light_config_data[6];
 	int32_t proximity_config_data[2];
 	int32_t pressure_config_data[2];
-	int32_t sar_config_data[4];
+	int32_t sar_config_data[6];
 	int32_t ois_config_data[2];
+	int32_t lux_b_config_data[6];
+	int32_t sar_secondary_config_data[6];
 };
 
 static uint8_t rtc_compensation_suspend;
@@ -596,7 +599,7 @@ static void mtk_nanohub_init_sensor_info(void)
 
 	p = &sensor_state[SENSOR_TYPE_PICK_UP_GESTURE];
 	p->sensorType = SENSOR_TYPE_PICK_UP_GESTURE;
-	p->rate = SENSOR_RATE_ONESHOT;
+	p->rate = SENSOR_RATE_ONCHANGE;
 	p->gain = 1;
 	strlcpy(p->name, "pickup", sizeof(p->name));
 	strlcpy(p->vendor, "mtk", sizeof(p->vendor));
@@ -676,6 +679,72 @@ static void mtk_nanohub_init_sensor_info(void)
 	strlcpy(p->name, "ois", sizeof(p->name));
 	strlcpy(p->vendor, "mtk", sizeof(p->vendor));
 
+	p = &sensor_state[SENSOR_TYPE_ALS_FACTORY_STRM];
+	p->sensorType = SENSOR_TYPE_ALS_FACTORY_STRM;
+	//p->rate = SENSOR_RATE_ONCHANGE;
+	p->gain = 1;
+	strlcpy(p->name, "als_factory_strm", sizeof(p->name));
+	strlcpy(p->vendor, "xiaomi", sizeof(p->vendor));
+
+	p = &sensor_state[SENSOR_TYPE_FOD];
+	p->sensorType = SENSOR_TYPE_FOD;
+	//p->rate = SENSOR_RATE_ONCHANGE;
+	p->gain = 1;
+	strlcpy(p->name, "fod", sizeof(p->name));
+	strlcpy(p->vendor, "xiaomi", sizeof(p->vendor));
+
+	p = &sensor_state[SENSOR_TYPE_AOD];
+	p->sensorType = SENSOR_TYPE_AOD;
+	//p->rate = SENSOR_RATE_ONCHANGE;
+	p->gain = 1;
+	strlcpy(p->name, "aod", sizeof(p->name));
+	strlcpy(p->vendor, "xiaomi", sizeof(p->vendor));
+
+	p = &sensor_state[SENSOR_TYPE_NONUI];
+	p->sensorType = SENSOR_TYPE_NONUI;
+	//p->rate = SENSOR_RATE_ONCHANGE;
+	p->gain = 1;
+	strlcpy(p->name, "nonui", sizeof(p->name));
+	strlcpy(p->vendor, "xiaomi", sizeof(p->vendor));
+
+	p = &sensor_state[SENSOR_TYPE_LUX_B];
+	p->sensorType = SENSOR_TYPE_LUX_B;
+	p->gain = 1;
+	strlcpy(p->name, "lux_b", sizeof(p->name));
+	strlcpy(p->vendor, "xiaomi", sizeof(p->vendor));
+
+	p = &sensor_state[SENSOR_TYPE_SAR_SECONDARY];
+	p->sensorType = SENSOR_TYPE_SAR_SECONDARY;
+	p->rate = SENSOR_RATE_ONCHANGE;
+	p->gain = 1;
+	strlcpy(p->name, "sar_secondary", sizeof(p->name));
+	strlcpy(p->vendor, "mtk", sizeof(p->vendor));
+
+	p = &sensor_state[SENSOR_TYPE_SAR_ALGO];
+	p->sensorType = SENSOR_TYPE_SAR_ALGO;
+	p->gain = 1;
+	strlcpy(p->name, "sar_algo", sizeof(p->name));
+	strlcpy(p->vendor, "xiaomi", sizeof(p->vendor));
+
+	p = &sensor_state[SENSOR_TYPE_SAR_ALGO_1];
+	p->sensorType = SENSOR_TYPE_SAR_ALGO_1;
+	p->gain = 1;
+	strlcpy(p->name, "sar_algo_1", sizeof(p->name));
+	strlcpy(p->vendor, "xiaomi", sizeof(p->vendor));
+
+        p = &sensor_state[SENSOR_TYPE_LIGHT_SMD];
+        p->sensorType = SENSOR_TYPE_LIGHT_SMD;
+        p->gain = 1;
+        strlcpy(p->name, "light_smd", sizeof(p->name));
+        strlcpy(p->vendor, "xiaomi", sizeof(p->vendor));
+
+#ifdef CONFIG_MTK_ULTRASND_PROXIMITY
+	p = &sensor_state[SENSOR_TYPE_ELLIPTIC_FUSION];
+	p->sensorType = SENSOR_TYPE_ELLIPTIC_FUSION;
+	p->gain = 1;
+	strlcpy(p->name, "prox", sizeof(p->name));
+	strlcpy(p->vendor, "ellip", sizeof(p->vendor));
+#endif
 }
 
 static void init_sensor_config_cmd(struct ConfigCmd *cmd,
@@ -1182,7 +1251,12 @@ int mtk_nanohub_get_data_from_hub(uint8_t sensor_id,
 		break;
 	case ID_LIGHT:
 		data->time_stamp = data_t->time_stamp;
-		data->light = data_t->light;
+		data->data[0] = data_t->data[0];
+		data->data[1] = data_t->data[1];
+		data->data[2] = data_t->data[2];
+		data->data[3] = data_t->data[3];
+		data->data[4] = data_t->data[4];
+		data->data[5] = data_t->data[5];
 		break;
 	case ID_PROXIMITY:
 		data->time_stamp = data_t->time_stamp;
@@ -1216,9 +1290,21 @@ int mtk_nanohub_get_data_from_hub(uint8_t sensor_id,
 		break;
 	case ID_SAR:
 		data->time_stamp = data_t->time_stamp;
-		data->sar_event.data[0] = data_t->sar_event.data[0];
-		data->sar_event.data[1] = data_t->sar_event.data[1];
-		data->sar_event.data[2] = data_t->sar_event.data[2];
+		data->data[0] = data_t->data[0];
+		data->data[1] = data_t->data[1];
+		data->data[2] = data_t->data[2];
+		data->data[3] = data_t->data[3];
+		data->data[4] = data_t->data[4];
+		data->data[5] = data_t->data[5];
+		break;
+    case ID_SAR_SECONDARY:
+		data->time_stamp = data_t->time_stamp;
+		data->data[0] = data_t->data[0];
+		data->data[1] = data_t->data[1];
+		data->data[2] = data_t->data[2];
+		data->data[3] = data_t->data[3];
+		data->data[4] = data_t->data[4];
+		data->data[5] = data_t->data[5];
 		break;
 	default:
 		err = -1;
@@ -1561,6 +1647,20 @@ int mtk_nanohub_set_cmd_to_hub(uint8_t sensor_id,
 			return -1;
 		}
 		break;
+	case ID_SAR_SECONDARY:
+		req.set_cust_req.sensorType = ID_SAR_SECONDARY;
+		req.set_cust_req.action = SENSOR_HUB_SET_CUST;
+		switch (action) {
+		case CUST_ACTION_GET_SENSOR_INFO:
+			req.set_cust_req.getInfo.action =
+				CUST_ACTION_GET_SENSOR_INFO;
+			len = offsetof(struct SCP_SENSOR_HUB_SET_CUST_REQ,
+				custData) + sizeof(req.set_cust_req.getInfo);
+			break;
+		default:
+			return -1;
+		}
+		break;
 	case ID_OIS:
 		req.set_cust_req.sensorType = ID_OIS;
 		req.set_cust_req.action = SENSOR_HUB_SET_CUST;
@@ -1575,6 +1675,59 @@ int mtk_nanohub_set_cmd_to_hub(uint8_t sensor_id,
 			return -1;
 		}
 		break;
+	case ID_LUX_B:
+		req.set_cust_req.sensorType = ID_LUX_B;
+		req.set_cust_req.action = SENSOR_HUB_SET_CUST;
+		switch (action) {
+		case CUST_ACTION_GET_RAW_DATA:
+			req.set_cust_req.getRawData.action =
+				CUST_ACTION_GET_RAW_DATA;
+			len = offsetof(struct SCP_SENSOR_HUB_SET_CUST_REQ,
+				custData) + sizeof(req.set_cust_req.getRawData);
+			err = mtk_nanohub_req_send(&req);
+			if (err == 0) {
+				if ((req.set_cust_rsp.action !=
+					SENSOR_HUB_SET_CUST)
+					|| (req.set_cust_rsp.errCode != 0)) {
+					pr_err("get_raw fail!\n");
+					return -1;
+				}
+				if (req.set_cust_rsp.getRawData.action !=
+					CUST_ACTION_GET_RAW_DATA) {
+					pr_err("get_raw fail!\n");
+					return -1;
+				}
+				pGetRawData = &req.set_cust_rsp.getRawData;
+				*((uint8_t *) data) =
+					pGetRawData->uint8_data[0];
+			} else {
+				pr_err("get_raw failed!\n");
+			}
+			return 0;
+		case CUST_ACTION_SHOW_ALSLV:
+			req.set_cust_req.showAlslv.action =
+				CUST_ACTION_SHOW_ALSLV;
+			len = offsetof(struct SCP_SENSOR_HUB_SET_CUST_REQ,
+				custData) + sizeof(req.set_cust_req.showAlslv);
+			break;
+		case CUST_ACTION_SHOW_ALSVAL:
+			req.set_cust_req.showAlsval.action =
+				CUST_ACTION_GET_RAW_DATA;
+			len = offsetof(struct SCP_SENSOR_HUB_SET_CUST_REQ,
+				custData) + sizeof(req.set_cust_req.showAlsval);
+			break;
+		case CUST_ACTION_GET_SENSOR_INFO:
+			req.set_cust_req.getInfo.action =
+				CUST_ACTION_GET_SENSOR_INFO;
+			len = offsetof(struct SCP_SENSOR_HUB_SET_CUST_REQ,
+				custData) + sizeof(req.set_cust_req.getInfo);
+			break;
+		default:
+			return -1;
+
+		}
+
+			break;
 
 	default:
 		req.set_cust_req.sensorType = sensor_id;
@@ -1767,6 +1920,16 @@ static void mtk_nanohub_restoring_config(void)
 		vfree(data);
 	}
 
+	length = sizeof(device->sar_secondary_config_data);
+	data = vzalloc(length);
+	if (data) {
+		spin_lock(&config_data_lock);
+		memcpy(data, device->sar_secondary_config_data, length);
+		spin_unlock(&config_data_lock);
+		mtk_nanohub_cfg_to_hub(ID_SAR_SECONDARY, data, length);
+		vfree(data);
+	}
+
 	length = sizeof(device->ois_config_data);
 	data = vzalloc(length);
 	if (data) {
@@ -1776,6 +1939,16 @@ static void mtk_nanohub_restoring_config(void)
 		mtk_nanohub_cfg_to_hub(ID_OIS, data, length);
 		vfree(data);
 	}
+	length = sizeof(device->lux_b_config_data);
+	data = vzalloc(length);
+	if (data) {
+		spin_lock(&config_data_lock);
+		memcpy(data, device->lux_b_config_data, length);
+		spin_unlock(&config_data_lock);
+		mtk_nanohub_cfg_to_hub(ID_LUX_B, data, length);
+		vfree(data);
+	}
+
 }
 
 static void mtk_nanohub_start_timesync(void)
@@ -1971,10 +2144,22 @@ static int mtk_nanohub_config(struct hf_device *hfdev,
 		memcpy(device->sar_config_data, data, length);
 		spin_unlock(&config_data_lock);
 		break;
+	case ID_SAR_SECONDARY:
+		length = sizeof(device->sar_secondary_config_data);
+		spin_lock(&config_data_lock);
+		memcpy(device->sar_secondary_config_data, data, length);
+		spin_unlock(&config_data_lock);
+		break;
 	case ID_OIS:
 		length = sizeof(device->ois_config_data);
 		spin_lock(&config_data_lock);
 		memcpy(device->ois_config_data, data, length);
+		spin_unlock(&config_data_lock);
+		break;
+	case ID_LUX_B:
+		length = sizeof(device->lux_b_config_data);
+		spin_lock(&config_data_lock);
+		memcpy(device->lux_b_config_data, data, length);
 		spin_unlock(&config_data_lock);
 		break;
 	}
@@ -2008,7 +2193,7 @@ static int mtk_nanohub_custom_cmd(struct hf_device *hfdev,
 		int sensor_type, struct custom_cmd *cust_cmd)
 {
 	struct mtk_nanohub_device *device = mtk_nanohub_dev;
-	enum custom_action cust_action = cust_cmd->data[0];
+	enum custom_action cust_action = cust_cmd->action;
 	int ret = 0;
 
 	/* User can use the cust_action to distinguish their own operations
@@ -2053,6 +2238,15 @@ static int mtk_nanohub_custom_cmd(struct hf_device *hfdev,
 					sizeof(device->light_config_data));
 			spin_unlock(&config_data_lock);
 			break;
+		case SENSOR_TYPE_LUX_B:
+			if (sizeof(cust_cmd->data) <
+					sizeof(device->lux_b_config_data))
+				return -EINVAL;
+			spin_lock(&config_data_lock);
+			memcpy(cust_cmd->data, device->lux_b_config_data,
+					sizeof(device->lux_b_config_data));
+			spin_unlock(&config_data_lock);
+			break;
 		case SENSOR_TYPE_PROXIMITY:
 			if (sizeof(cust_cmd->data) <
 					sizeof(device->proximity_config_data))
@@ -2078,6 +2272,15 @@ static int mtk_nanohub_custom_cmd(struct hf_device *hfdev,
 			spin_lock(&config_data_lock);
 			memcpy(cust_cmd->data, device->sar_config_data,
 					sizeof(device->sar_config_data));
+			spin_unlock(&config_data_lock);
+			break;
+        case SENSOR_TYPE_SAR_SECONDARY:
+			if (sizeof(cust_cmd->data) <
+					sizeof(device->sar_secondary_config_data))
+				return -EINVAL;
+			spin_lock(&config_data_lock);
+			memcpy(cust_cmd->data, device->sar_secondary_config_data,
+					sizeof(device->sar_secondary_config_data));
 			spin_unlock(&config_data_lock);
 			break;
 		case SENSOR_TYPE_OIS:
@@ -2153,7 +2356,12 @@ static int mtk_nanohub_report_to_manager(struct data_unit_t *data)
 			event.timestamp = data->time_stamp;
 			event.sensor_type = id_to_type(data->sensor_type);
 			event.action = data->flush_action;
-			event.word[0] = data->light;
+			event.word[0] = data->data[0];
+			event.word[1] = data->data[1];
+			event.word[2] = data->data[2];
+			event.word[3] = data->data[3];
+			event.word[4] = data->data[4];
+			event.word[5] = data->data[5];
 			break;
 		case ID_PROXIMITY:
 			event.timestamp = data->time_stamp;
@@ -2230,9 +2438,23 @@ static int mtk_nanohub_report_to_manager(struct data_unit_t *data)
 			event.timestamp = data->time_stamp;
 			event.sensor_type = id_to_type(data->sensor_type);
 			event.action = data->flush_action;
-			event.word[0] = data->sar_event.data[0];
-			event.word[1] = data->sar_event.data[1];
-			event.word[2] = data->sar_event.data[2];
+			event.word[0] = data->data[0];
+			event.word[1] = data->data[1];
+			event.word[2] = data->data[2];
+			event.word[3] = data->data[3];
+			event.word[4] = data->data[4];
+			event.word[5] = data->data[5];
+			break;
+		case ID_SAR_SECONDARY:
+			event.timestamp = data->time_stamp;
+			event.sensor_type = id_to_type(data->sensor_type);
+			event.action = data->flush_action;
+			event.word[0] = data->data[0];
+			event.word[1] = data->data[1];
+			event.word[2] = data->data[2];
+			event.word[3] = data->data[3];
+			event.word[4] = data->data[4];
+			event.word[5] = data->data[5];
 			break;
 		default:
 			event.timestamp = data->time_stamp;
@@ -2326,6 +2548,22 @@ static int mtk_nanohub_report_to_manager(struct data_unit_t *data)
 			event.sensor_type = id_to_type(data->sensor_type);
 			event.action = data->flush_action;
 			event.word[0] = data->data[0];
+			event.word[1] = data->data[1];
+			event.word[2] = data->data[2];
+			event.word[3] = data->data[3];
+			event.word[4] = data->data[4];
+			event.word[5] = data->data[5];
+			break;
+		case ID_LUX_B:
+			event.timestamp = data->time_stamp;
+			event.sensor_type = id_to_type(data->sensor_type);
+			event.action = data->flush_action;
+			event.word[0] = data->data[0];
+			event.word[1] = data->data[1];
+			event.word[2] = data->data[2];
+			event.word[3] = data->data[3];
+			event.word[4] = data->data[4];
+			event.word[5] = data->data[5];
 			break;
 		case ID_PRESSURE:
 			event.timestamp = data->time_stamp;
@@ -2335,12 +2573,19 @@ static int mtk_nanohub_report_to_manager(struct data_unit_t *data)
 			event.word[1] = data->data[1];
 			break;
 		case ID_SAR:
+		case ID_SAR_SECONDARY:
 			event.timestamp = data->time_stamp;
 			event.sensor_type = id_to_type(data->sensor_type);
 			event.action = data->flush_action;
-			event.word[0] = data->sar_event.x_bias;
-			event.word[1] = data->sar_event.y_bias;
-			event.word[2] = data->sar_event.z_bias;
+			event.word[0] = data->data[0];
+			event.word[1] = data->data[1];
+			event.word[2] = data->data[2];
+			event.word[3] = data->data[3];
+			event.word[4] = data->data[4];
+			event.word[5] = data->data[5];
+			pr_notice("%s CALI DATA  %d %d %d %d %d %d\n", __func__,
+				event.word[0],event.word[1],event.word[2],
+				event.word[3],event.word[4],event.word[5]);
 			break;
 		case ID_OIS:
 			event.timestamp = data->time_stamp;
@@ -2427,6 +2672,9 @@ static int mtk_nanohub_pm_event(struct notifier_block *notifier,
 	case PM_POST_SUSPEND:
 		pr_debug("resume ap boottime=%lld\n", ktime_get_boot_ns());
 		WRITE_ONCE(rtc_compensation_suspend, false);
+		//Added to send flush command to light sensor.
+		mtk_nanohub_flush_to_hub(type_to_id(SENSOR_TYPE_LIGHT));
+		mtk_nanohub_flush_to_hub(type_to_id(SENSOR_TYPE_LUX_B));
 		mtk_nanohub_send_timestamp_to_hub();
 		return NOTIFY_DONE;
 	case PM_SUSPEND_PREPARE:
@@ -2719,6 +2967,18 @@ static void mtk_nanohub_shutdown(struct platform_device *pdev)
 		}
 	}
 	mutex_unlock(&sensor_state_mtx);
+}
+
+int elliptic_io_open_port(int portid)
+{
+	pr_debug("ELUS sensor_enable_to_hub (1)");
+	return mtk_nanohub_enable_to_hub(ID_ELLIPTIC_FUSION, 1);
+}
+
+int elliptic_io_close_port(int portid)
+{
+	pr_debug("ELUS sensor_enable_to_hub (0)");
+	return mtk_nanohub_enable_to_hub(ID_ELLIPTIC_FUSION, 0);
 }
 
 static struct platform_device mtk_nanohub_pdev = {

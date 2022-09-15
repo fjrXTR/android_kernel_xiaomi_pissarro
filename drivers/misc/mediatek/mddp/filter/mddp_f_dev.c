@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2020 MediaTek Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/errno.h>
+#include <linux/netdevice.h>
 #include <linux/string.h>
 
 #include "mddp_debug.h"
@@ -96,6 +98,12 @@ static int mddp_f_lan_dev_cnt_g;
 static struct mddp_f_dev_netif mddp_f_lan_dev[MDDP_MAX_LAN_DEV_NUM];
 static int mddp_f_wan_dev_cnt_g;
 static struct mddp_f_dev_netif mddp_f_wan_dev[MDDP_MAX_WAN_DEV_NUM];
+
+static int mddp_f_wan_ifindex = -1;
+int mddp_f_get_wan_ifindex(void)
+{
+	return mddp_f_wan_ifindex;
+}
 
 bool mddp_f_is_support_lan_dev(char *dev_name)
 {
@@ -246,6 +254,7 @@ void mddp_f_dev_add_lan_dev(char *dev_name, int netif_id)
 void mddp_f_dev_add_wan_dev(char *dev_name)
 {
 	int i;
+	struct net_device *netdev;
 
 	/* Find unused id */
 	for (i = 0; i < MDDP_MAX_WAN_DEV_NUM; i++) {
@@ -264,6 +273,8 @@ void mddp_f_dev_add_wan_dev(char *dev_name)
 	/* Set WAN device entry */
 	strlcpy(mddp_f_wan_dev[i].dev_name, dev_name, IFNAMSIZ);
 	mddp_f_wan_dev[i].netif_id = mddp_f_dev_get_netif_id(dev_name);
+	netdev = dev_get_by_name_rcu(&init_net, dev_name);
+	mddp_f_wan_ifindex = netdev->ifindex;
 	mddp_f_wan_dev[i].is_valid = true;
 
 	mddp_f_wan_dev_cnt_g++;

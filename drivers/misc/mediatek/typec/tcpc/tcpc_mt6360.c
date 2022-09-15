@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2018 MediaTek Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -1131,7 +1132,7 @@ static inline int mt6360_init_phy_ctrl(struct tcpc_device *tcpc)
 	mt6360_i2c_write8(tcpc, MT6360_REG_PHY_CTRL3, 0x82);
 	/* BMC Decoder idle time, 164ns per steps */
 	mt6360_i2c_write8(tcpc, MT6360_REG_PHY_CTRL7, 0x36);
-	mt6360_i2c_write8(tcpc, MT6360_REG_PHY_CTRL11, 0x60);
+	mt6360_i2c_write8(tcpc, MT6360_REG_PHY_CTRL11, 0x04);
 	/* Retry period setting, 416ns per step */
 	mt6360_i2c_write8(tcpc, MT6360_REG_PHY_CTRL12, 0x3C);
 	mt6360_i2c_write8(tcpc, MT6360_REG_RX_CTRL1, 0xE8);
@@ -2369,7 +2370,6 @@ static int mt6360_tcpcdev_init(struct mt6360_chip *chip, struct device *dev)
 	struct device_node *np = dev->of_node;
 	u32 val, len;
 	const char *name = "default";
-	int err;
 
 	desc = devm_kzalloc(dev, sizeof(*desc), GFP_KERNEL);
 	if (!desc)
@@ -2421,9 +2421,7 @@ static int mt6360_tcpcdev_init(struct mt6360_chip *chip, struct device *dev)
 	}
 #endif	/* CONFIG_TCPC_VCONN_SUPPLY_MODE */
 
-	err = of_property_read_string(np, "mt-tcpc,name", (char const **)&name);
-	if (err < 0)
-		dev_info(dev, "%s no tcpc name\n", __func__);
+	of_property_read_string(np, "mt-tcpc,name", (char const **)&name);
 	len = strlen(name);
 	desc->name = kzalloc(len + 1, GFP_KERNEL);
 	if (!desc->name)
@@ -2576,7 +2574,7 @@ static int mt6360_i2c_probe(struct i2c_client *client,
 
 #if defined(CONFIG_WATER_DETECTION) || defined(CONFIG_CABLE_TYPE_DETECTION)
 #if CONFIG_MTK_GAUGE_VERSION == 30
-	chip->chgdev = get_charger_by_name("primary_chg");
+	chip->chgdev = get_charger_by_name("pmic");
 	if (!chip->chgdev) {
 		dev_err(chip->dev, "%s get charger device fail\n", __func__);
 		ret = -EPROBE_DEFER;

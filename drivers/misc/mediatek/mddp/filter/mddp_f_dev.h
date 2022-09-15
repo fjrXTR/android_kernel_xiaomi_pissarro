@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2020 MediaTek Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #ifndef _MDDP_F_DEV_H
@@ -30,5 +31,6 @@ bool mddp_f_is_support_lan_dev(char *dev_name);
 bool mddp_f_is_support_wan_dev(char *dev_name);
 int mddp_f_dev_name_to_id(char *dev_name);
 int mddp_f_dev_name_to_netif_id(char *dev_name);
+int mddp_f_get_wan_ifindex(void);
 
 #endif /* _MDDP_F_DEV_H */

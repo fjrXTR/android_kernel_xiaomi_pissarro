@@ -2,6 +2,7 @@
  * Universal Flash Storage Turbo Write
  *
  * Copyright (C) 2017-2018 Samsung Electronics Co., Ltd.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Authors:
  *	Yongmyung Lee <ymhungry.lee@samsung.com>
@@ -40,7 +41,9 @@
 #include "ufstw.h"
 #include "ufs_quirks.h"
 
-#define UFS_MTK_TW_AWAYS_ON
+#if defined(CONFIG_UFS_CHECK) && defined(CONFIG_FACTORY_BUILD)
+#include "ufs-check.h"
+#endif
 
 static int ufstw_create_sysfs(struct ufsf_feature *ufsf, struct ufstw_lu *tw);
 static int ufstw_clear_lu_flag(struct ufstw_lu *tw, u8 idn, bool *flag_res);
@@ -678,6 +681,11 @@ void ufstw_get_geo_info(struct ufstw_dev_info *tw_dev_info, u8 *geo_buf)
 		return;
 	}
 
+#if defined(CONFIG_UFS_CHECK) && defined(CONFIG_FACTORY_BUILD)
+	tw_dev_info->seg_size = LI_EN_32(&geo_buf[GEOMETRY_DESC_SEGMENT_SIZE]);
+	tw_dev_info->unit_size = geo_buf[GEOMETRY_DESC_UNIT_SIZE];
+#endif
+
 	INFO_MSG("tw_geo [4F:52] dTurboWriteBufferMaxNAllocUnits %u",
 		 LI_EN_32(&geo_buf[GEOMETRY_DESC_TW_MAX_SIZE]));
 	INFO_MSG("tw_geo [53] bDeviceMaxTurboWriteLUs %u",
@@ -712,6 +720,9 @@ int ufstw_get_lu_info(struct ufsf_feature *ufsf, unsigned int lun, u8 *lu_buf)
 		tw = ufsf->tw_lup[lun];
 		tw->ufsf = ufsf;
 		tw->lun = lun;
+#if defined(CONFIG_UFS_CHECK) && defined(CONFIG_FACTORY_BUILD)
+		fill_wb_gb(ufsf->hba, ufsf->tw_dev_info.seg_size, ufsf->tw_dev_info.unit_size, lu_desc.tw_lu_buf_size);
+#endif
 		INIT_INFO("tw_lu LUN(%d) [29:2C] dLUNumTurboWriteBufferAllocUnits %u",
 			  lun, lu_desc.tw_lu_buf_size);
 	} else {

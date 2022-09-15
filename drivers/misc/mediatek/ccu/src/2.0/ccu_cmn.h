@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -35,6 +36,7 @@ struct ccu_device_s {
 	unsigned long dmem_base;
 	unsigned long n3d_a_base;
 	unsigned int irq_num;
+	struct mutex dev_mutex;
 	struct mutex user_mutex;
 	struct mutex ion_client_mutex;
 	/* list of vlist_type(ccu_user_t) */

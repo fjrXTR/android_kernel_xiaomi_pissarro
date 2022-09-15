@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2015 MediaTek Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -28,14 +29,55 @@
 
 #define MAX_CONNECTOR 3
 
-#ifndef CONFIG_FPGA_EARLY_PORTING
+/*
+ * some feature options should be disabled in bringup stage,
+ * in bringup stage this #define should open.
+ */
+//#if defined(CONFIG_MACH_MT6877)
+//#define MTK_DRM_BRINGUP_STAGE
+//#endif
+
+#ifdef MTK_DRM_BRINGUP_STAGE
+#define DRM_BYPASS_PQ
+#else
 #define MTK_DRM_ESD_SUPPORT
 #define MTK_FB_MMDVFS_SUPPORT
-#endif
 #define MTK_DRM_FENCE_SUPPORT
+
+#ifdef CONFIG_MTK_IOMMU_V2
+#define CONFIG_MTK_DISPLAY_M4U
+#endif
+
+#define MTK_FILL_MIPI_IMPEDANCE
+
+#if (defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6873)\
+	|| defined(CONFIG_MACH_MT6893) ||\
+	defined(CONFIG_MACH_MT6853) ||\
+	defined(CONFIG_MACH_MT6833)) &&\
+	defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT)
+#define MTK_DRM_DELAY_PRESENT_FENCE
+/* Delay present fence would cause config merge */
+#endif
+
+#if defined(CONFIG_MACH_MT6877)
+/*
+ * MTK_DRM_DELAY_PRESENT_FENCE can not be defined,
+ * but SF present fence must be enabled in platform dts
+ */
+#define MTK_DRM_DELAY_PRESENT_FENCE_SOF
+#endif
+
+#if defined(CONFIG_MACH_MT6893) || defined(CONFIG_MACH_MT6853)\
+	|| defined(CONFIG_MACH_MT6877)
+#define CONFIG_MTK_DYN_SWITCH_BY_CMD
+#endif
+
+#endif /*MTK_DRM_BRINGUP_STAGE*/
+
+#ifdef CONFIG_MTK_CMDQ_MBOX
 #define MTK_DRM_CMDQ_ASYNC
 #define CONFIG_MTK_DISPLAY_CMDQ
-#define MTK_FILL_MIPI_IMPEDANCE
+#endif
 
 struct device;
 struct device_node;
@@ -174,10 +216,8 @@ struct mtk_drm_private {
 	int need_vds_path_switch;
 	int vds_path_switch_dirty;
 	int vds_path_switch_done;
+	int need_vds_path_switch_back;
 	int vds_path_enable;
-
-	bool need_cwb_path_disconnect;
-	bool cwb_is_preempted;
 
 	/* Due to 2nd display share 1 secure gce client, need store here */
 	struct cmdq_client *ext_sec_client;
@@ -243,6 +283,9 @@ extern struct platform_driver mtk_dp_tx_driver;
 extern struct platform_driver mtk_dp_intf_driver;
 #endif
 
+extern atomic_t resume_pending;
+extern wait_queue_head_t resume_wait_q;
+
 void mtk_atomic_state_put_queue(struct drm_atomic_state *state);
 void mtk_drm_fence_update(unsigned int fence_idx, unsigned int index);
 void drm_trigger_repaint(enum DRM_REPAINT_TYPE type,
@@ -264,5 +307,5 @@ int lcm_fps_ctx_init(struct drm_crtc *crtc);
 int lcm_fps_ctx_reset(struct drm_crtc *crtc);
 int lcm_fps_ctx_update(unsigned long long cur_ns,
 		unsigned int crtc_id, unsigned int mode);
-void disp_drm_debug(const char *opt);
+int mtk_mipi_clk_change(struct drm_crtc *crtc, unsigned int data_rate);
 #endif /* MTK_DRM_DRV_H */

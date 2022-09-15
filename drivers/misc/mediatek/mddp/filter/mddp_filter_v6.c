@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2020 MediaTek Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 struct router_tuple {
@@ -425,6 +426,7 @@ static inline void _mddp_f_in_tail_v6(
 			ip6 = (struct ip6header *) (skb->data + desc->l3_off);
 
 			cb->dev = skb->dev;
+			cb->ifindex = skb->dev->ifindex;
 		} else {
 			MDDP_F_LOG(MDDP_LL_NOTICE,
 					"%s: Invalid router flag[%x], skb[%p]!\n",

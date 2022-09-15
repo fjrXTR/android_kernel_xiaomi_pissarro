@@ -2,6 +2,7 @@
  * Universal Flash Storage Host Performance Booster
  *
  * Copyright (C) 2017-2018 Samsung Electronics Co., Ltd.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Authors:
  *	Yongmyung Lee <ymhungry.lee@samsung.com>
@@ -2805,6 +2806,9 @@ int ufshpb_get_lu_info(struct ufsf_feature *ufsf, u8 lun, u8 *unit_buf)
 		hpb->lu_pinned_rgn_startidx =
 			lu_desc.lu_hpb_pinned_rgn_startidx;
 		hpb->lu_pinned_end_offset = lu_desc.lu_hpb_pinned_end_offset;
+#if defined(CONFIG_UFS_CHECK) && defined(CONFIG_FACTORY_BUILD)
+		fill_hpb_gb(ufsf->hba, lu_desc.lu_max_active_hpb_rgns, ufsf->hpb_dev_info.rgn_size);
+#endif
 	} else {
 		INIT_INFO("===== LU %d is hpb-disabled.", lun);
 		return -ENODEV;

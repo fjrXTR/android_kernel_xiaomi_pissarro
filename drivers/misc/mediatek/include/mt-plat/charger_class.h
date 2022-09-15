@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2015 MediaTek Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -64,6 +65,7 @@ struct charger_ops {
 	int (*enable)(struct charger_device *dev, bool en);
 
 	int (*is_enabled)(struct charger_device *dev, bool *en);
+	int (*is_bypass_enabled)(struct charger_device *dev, bool *en);
 
 	/* enable/disable chip */
 	int (*enable_chip)(struct charger_device *dev, bool en);
@@ -159,9 +161,11 @@ struct charger_ops {
 				enum adc_channel chan, int *min, int *max);
 	int (*get_vbus_adc)(struct charger_device *dev, u32 *vbus);
 	int (*get_ibus_adc)(struct charger_device *dev, u32 *ibus);
+	int (*get_psys_adc)(struct charger_device *dev, u32 *psys);
 	int (*get_ibat_adc)(struct charger_device *dev, u32 *ibat);
 	int (*get_tchg_adc)(struct charger_device *dev, int *tchg_min,
 		int *tchg_max);
+	int (*get_ts_temp)(struct charger_device *dev, int *value);
 	int (*get_zcv)(struct charger_device *dev, u32 *uV);
 
 	/* TypeC */
@@ -175,6 +179,24 @@ struct charger_ops {
 	int (*enable_hz)(struct charger_device *dev, bool en);
 
 	int (*enable_bleed_discharge)(struct charger_device *dev, bool en);
+
+	/* For XMUSB350 */
+	int (*update_chgtype)(struct charger_device *chg_dev, int type);
+	int (*qc3_dpdm_pulse)(struct charger_device *chg_dev, int type, int count);
+	int (*select_qc_mode)(struct charger_device *chg_dev, int type);
+	int (*get_first_charger_type)(struct charger_device *chg_dev);
+
+	/* For MP2762 */
+	int (*get_vsys_adc)(struct charger_device *dev, u32 *value);
+	int (*get_charge_status)(struct charger_device *dev, int *value);
+
+	/* For BQ25790 */
+	int (*set_en_extilim)(struct charger_device *dev, bool en);
+	int (*force_input_current_limit)(struct charger_device *dev, int value);
+
+	/* For BQ25980 */
+	int (*enable_bypass)(struct charger_device *dev, bool en);
+	int (*set_ac_ovp)(struct charger_device *chg_dev, int value);
 };
 
 static inline void *charger_dev_get_drvdata(
@@ -208,6 +230,7 @@ static inline void *charger_get_data(
 
 extern int charger_dev_enable(struct charger_device *charger_dev, bool en);
 extern int charger_dev_is_enabled(struct charger_device *charger_dev, bool *en);
+extern int charger_dev_is_bypass_enabled(struct charger_device *charger_dev, bool *en);
 extern int charger_dev_plug_in(struct charger_device *charger_dev);
 extern int charger_dev_plug_out(struct charger_device *charger_dev);
 extern int charger_dev_set_charging_current(
@@ -305,11 +328,14 @@ extern int charger_dev_get_vbus(
 	struct charger_device *charger_dev, u32 *vbus);
 extern int charger_dev_get_ibus(
 	struct charger_device *charger_dev, u32 *ibus);
+extern int charger_dev_get_psys(
+	struct charger_device *charger_dev, u32 *psys);
 extern int charger_dev_get_ibat(
 	struct charger_device *charger_dev, u32 *ibat);
 extern int charger_dev_get_temperature(
 	struct charger_device *charger_dev, int *tchg_min,
 		int *tchg_max);
+extern int charger_dev_get_ts_temp(struct charger_device *charger_dev, int *value);
 extern int charger_dev_set_direct_charging_ibusoc(
 	struct charger_device *charger_dev, u32 ua);
 extern int charger_dev_set_direct_charging_vbusov(
@@ -358,5 +384,22 @@ extern int unregister_charger_device_notifier(
 extern int charger_dev_notify(
 	struct charger_device *charger_dev, int event);
 
+/* For MP2762 */
+extern int charger_dev_get_vsys(struct charger_device *dev, u32 *value);
+extern int charger_dev_get_charge_status(struct charger_device *dev, int *value);
+
+/* For BQ25790 */
+extern int charger_dev_set_en_extilim(struct charger_device *dev, bool en);
+extern int charger_dev_force_input_current_limit(struct charger_device *dev, int value);
+
+/* For BQ25980 */
+extern int charger_dev_enable_bypass(struct charger_device *dev, bool en);
+extern int charger_dev_set_ac_ovp(struct charger_device *dev, int value);
+
+/* For XMUSB350 */
+extern int charger_dev_update_chgtype(struct charger_device *charger_dev, int type);
+extern int charger_dev_qc3_dpdm_pulse(struct charger_device *charger_dev, int type, int count);
+extern int charger_dev_select_qc_mode(struct charger_device *charger_dev, int type);
+extern int charger_dev_get_first_charger_type(struct charger_device *charger_dev);
 
 #endif /*LINUX_POWER_CHARGER_CLASS_H*/

@@ -51,6 +51,9 @@
 #include "ufshcd.h"
 #include "ufshpb_skh.h"
 #include <asm/unaligned.h>
+#if defined(CONFIG_UFS_CHECK) && defined(CONFIG_FACTORY_BUILD)
+#include "ufs-check.h"
+#endif
 
 u32 skhpb_debug_mask = SKHPB_LOG_ERR | SKHPB_LOG_INFO;
 //u32 skhpb_debug_mask = SKHPB_LOG_ERR | SKHPB_LOG_INFO | SKHPB_LOG_DEBUG | SKHPB_LOG_HEX;
@@ -2332,7 +2335,10 @@ int skhpb_control_validation(struct ufs_hba *hba,
 static int skhpb_init(struct ufs_hba *hba)
 {
 	struct skhpb_func_desc func_desc;
-	int ret, retries;
+	int ret;
+#if 0
+    int retries;
+#endif
 	u8 lun;
 	int hpb_dev = 0;
 	bool do_work;
@@ -2345,7 +2351,7 @@ static int skhpb_init(struct ufs_hba *hba)
 	ret = skhpb_read_geo_desc_support(hba, &func_desc);
 	if (ret)
 		goto out_state;
-
+#if 0
 	for (retries = 0; retries < 20; retries++) {
 		if (!hba->lrb_in_use) {
 			ret = ufshcd_query_flag(hba, UPIU_QUERY_OPCODE_SET_FLAG,
@@ -2368,6 +2374,7 @@ static int skhpb_init(struct ufs_hba *hba)
 		if (fHPBReset)
 			SKHPB_DRIVER_I("fHPBReset still set\n");
 	}
+#endif
 
 	skhpb_init_constant();
 
@@ -2382,6 +2389,13 @@ static int skhpb_init(struct ufs_hba *hba)
 
 		if (lu_desc.lu_hpb_enable == false)
 			continue;
+
+#if defined(CONFIG_UFS_CHECK) && defined(CONFIG_FACTORY_BUILD)
+		fill_hpb_gb(hba, lu_desc.lu_max_active_hpb_regions, func_desc.hpb_region_size);
+
+		if (check_wb_hpb_size(hba) == -1)
+			check_hpb_and_tw_provsion(hba);
+#endif
 
 		hba->skhpb_lup[lun] = kzalloc(sizeof(struct skhpb_lu),
 								GFP_KERNEL);
@@ -2604,6 +2618,11 @@ void skhpb_suspend(struct ufs_hba *hba)
 
 			while (1) {
 				spin_lock_irqsave(&hpb->rsp_list_lock, flags);
+				/* break if lh_rsp_info list_head not init yet. */
+				if (!hpb->lh_rsp_info.next) {
+					spin_unlock_irqrestore(&hpb->rsp_list_lock, flags);
+					break;
+				}
 				rsp_info = list_first_entry_or_null(&hpb->lh_rsp_info,
 													struct skhpb_rsp_info, list_rsp_info);
 				if (!rsp_info) {
@@ -2617,6 +2636,11 @@ void skhpb_suspend(struct ufs_hba *hba)
 			}
 			while (1) {
 				spin_lock_irqsave(&hpb->map_list_lock, flags);
+				/* break if lh_map_req_retry list_head not init yet. */
+				if (!hpb->lh_map_req_retry.next) {
+					spin_unlock_irqrestore(&hpb->map_list_lock, flags);
+					break;
+				}
 				map_req = list_first_entry_or_null(&hpb->lh_map_req_retry,
 												   struct skhpb_map_req, list_map_req);
 				if (!map_req) {

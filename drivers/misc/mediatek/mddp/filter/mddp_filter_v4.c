@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2020 MediaTek Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 struct tuple {
@@ -466,6 +467,7 @@ static inline void _mddp_f_in_tail_v4(
 	if (desc->flag & DESC_FLAG_TRACK_NAT) {
 
 		cb->dev = skb->dev;
+		cb->ifindex = skb->dev->ifindex;
 
 		ip = (struct ip4header *) (skb->data + desc->l3_off);
 

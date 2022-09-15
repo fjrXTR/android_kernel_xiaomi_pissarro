@@ -19,6 +19,11 @@
 #define MAX_EEPROM_SIZE_16K 0x4000
 
 struct stCAM_CAL_LIST_STRUCT g_camCalList[] = {
+	{OV13B10_SENSOR_ID, 0xA0, Common_read_region, MAX_EEPROM_SIZE_16K},
+	{IMX355_SENSOR_ID, 0xA2, Common_read_region, MAX_EEPROM_SIZE_16K},
+	{OV02B10_SENSOR_ID, 0xA4, Common_read_region, MAX_EEPROM_SIZE_16K},
+	{IMX615_SENSOR_ID, 0xA8, Common_read_region, MAX_EEPROM_SIZE_16K},
+	{OV64B_SENSOR_ID, 0xA0, Common_read_region, MAX_EEPROM_SIZE_16K},
 	/*Below is commom sensor */
 	{IMX586_SENSOR_ID, 0xA0, Common_read_region, MAX_EEPROM_SIZE_16K,
 		BL24SA64_write_region},
@@ -36,9 +41,33 @@ struct stCAM_CAL_LIST_STRUCT g_camCalList[] = {
 	{IMX398_SENSOR_ID, 0xA0, Common_read_region},
 	{IMX350_SENSOR_ID, 0xA0, Common_read_region},
 	{IMX386_MONO_SENSOR_ID, 0xA0, Common_read_region},
+	{S5KJD1_SENSOR_ID, 0xB0, Common_read_region, DEFAULT_MAX_EEPROM_SIZE_8K,
+		DW9763_write_region},
 	{IMX499_SENSOR_ID, 0xA0, Common_read_region},
 	{IMX481_SENSOR_ID, 0xA4, Common_read_region, DEFAULT_MAX_EEPROM_SIZE_8K,
 		BL24SA64_write_region},
+	/*pissarro use camera*/
+	{S5KHM2SP_OFILM_SENSOR_ID, 0xA2, Common_read_region},
+	{S5KHM2SP_SUNNY_SENSOR_ID, 0xA2, Common_read_region},
+	{S5KHM2SD_OFILM_SENSOR_ID, 0xA2, Common_read_region},
+	{S5KHM2SD_SUNNY_SENSOR_ID, 0xA2, Common_read_region},
+	{IMX471_OFILM_SENSOR_ID, 0xA2, Common_read_region},
+	{IMX471_SUNNY_SENSOR_ID, 0xA2, Common_read_region},
+	{S5K4H7_SUNNY_SENSOR_ID, 0xA0, Common_read_region},
+	{S5K4H7_AAC_SENSOR_ID, 0xA0, Common_read_region},
+	{GC02M1_SUNNY_SENSOR_ID, 0xA4, Common_read_region},
+	{GC02M1_OFILM_SENSOR_ID, 0xA4, Common_read_region},
+	/*india use camera*/
+	{S5KHM2SP_OFILM_INDIA_SENSOR_ID, 0xA2, Common_read_region},
+	{S5KHM2SP_SUNNY_INDIA_SENSOR_ID, 0xA2, Common_read_region},
+	{S5KHM2SD_OFILM_INDIA_SENSOR_ID, 0xA2, Common_read_region},
+	{S5KHM2SD_SUNNY_INDIA_SENSOR_ID, 0xA2, Common_read_region},
+	{IMX471_OFILM_INDIA_SENSOR_ID, 0xA2, Common_read_region},
+	{IMX471_SUNNY_INDIA_SENSOR_ID, 0xA2, Common_read_region},
+	{S5K4H7_SUNNY_INDIA_SENSOR_ID, 0xA0, Common_read_region},
+	{S5K4H7_AAC_INDIA_SENSOR_ID, 0xA0, Common_read_region},
+	{GC02M1_SUNNY_INDIA_SENSOR_ID, 0xA4, Common_read_region},
+	{GC02M1_OFILM_INDIA_SENSOR_ID, 0xA4, Common_read_region},
 	/*  ADD before this line */
 	{0, 0, 0}       /*end of list */
 };

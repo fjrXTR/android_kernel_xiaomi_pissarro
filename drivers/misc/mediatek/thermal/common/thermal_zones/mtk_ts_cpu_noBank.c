@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -444,7 +445,7 @@ int mtk_gpufreq_register(struct mt_gpufreq_power_table_info *freqs, int num)
 		mtk_gpu_power[i].gpufreq_khz = freqs[i].gpufreq_khz;
 		mtk_gpu_power[i].gpufreq_power = freqs[i].gpufreq_power;
 
-		tscpu_dprintk("[%d].gpufreq_khz=%u, .gpufreq_power=%u\n",
+		tscpu_printk("[%d].gpufreq_khz=%u, .gpufreq_power=%u\n",
 			i, freqs[i].gpufreq_khz, freqs[i].gpufreq_power);
 	}
 
@@ -1567,6 +1568,7 @@ static void check_temp_range(void)
 				g_is_TempOutsideNormalRange |= (j << 8);
 				tscpu_printk(TSCPU_LOG_TAG"ONRT=%d,0x%x\n",
 					temp, g_is_TempOutsideNormalRange);
+				dump_lvts_error_info();
 			}
 
 			if (temp <= -30000) {
@@ -2575,9 +2577,10 @@ static void init_thermal(void)
 	lvts_enable_all_sensing_points();
 
 	read_all_tc_temperature();
-
+#if defined(CONFIG_MTK_TINYSYS_SSPM_SUPPORT)
 #if THERMAL_ENABLE_TINYSYS_SSPM || THERMAL_ENABLE_ONLY_TZ_SSPM
 	lvts_ipi_send_efuse_data();
+#endif
 #endif
 #endif
 }

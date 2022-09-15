@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -92,8 +93,6 @@
 #define MDP_AAL_TILE_01				(0x4F0)
 #define MDP_AAL_TILE_02				(0x0F4)
 
-#define MDP_AAL_DUAL_PIPE00				(0x500)
-#define MDP_AAL_DUAL_PIPE08				(0x544)
 #define AAL_DRE30_GAIN_REGISTER_NUM		(544)
 #define AAL_DRE30_HIST_REGISTER_NUM		(768)
 
@@ -128,8 +127,7 @@ enum DISP_AAL_REFRESH_LATENCY {
 };
 
 struct DISP_DRE30_HIST {
-	unsigned int aal0_dre_hist[AAL_DRE30_HIST_REGISTER_NUM];
-	unsigned int aal1_dre_hist[AAL_DRE30_HIST_REGISTER_NUM];
+	unsigned int dre_hist[AAL_DRE30_HIST_REGISTER_NUM];
 	int dre_blk_x_num;
 	int dre_blk_y_num;
 };
@@ -150,6 +148,7 @@ void disp_aal_set_lcm_type(unsigned int panel_type);
 void disp_aal_set_ess_level(int level);
 void disp_aal_set_ess_en(int enable);
 void disp_aal_set_dre_en(int enable);
+void disp_aal_set_bypass(struct drm_crtc *crtc, int bypass);
 
 int mtk_drm_ioctl_aal_eventctl(struct drm_device *dev, void *data,
 	struct drm_file *file_priv);
@@ -162,6 +161,8 @@ int mtk_drm_ioctl_aal_init_dre30(struct drm_device *dev, void *data,
 int mtk_drm_ioctl_aal_get_size(struct drm_device *dev, void *data,
 	struct drm_file *file_priv);
 int mtk_drm_ioctl_aal_set_param(struct drm_device *dev, void *data,
+	struct drm_file *file_priv);
+int mtk_drm_ioctl_bypass_aal(struct drm_device *dev, void *data,
 	struct drm_file *file_priv);
 
 #endif

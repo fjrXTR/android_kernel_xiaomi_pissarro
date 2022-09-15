@@ -212,7 +212,6 @@
 /*S5K*/
 #define S5KJD1_SENSOR_ID                        0x3841
 #define S5K2LQSX_SENSOR_ID                      0x2c1a
-#define S5K4H7_SENSOR_ID                        0x487B
 #define S5K3P8SP_SENSOR_ID                      0x3108
 #define S5K2T7SP_SENSOR_ID                      0x2147
 #define S5K3P8SX_SENSOR_ID                      0x3108
@@ -251,7 +250,6 @@
 #define S5K5E8YX_SENSOR_ID                      0x5e80
 #define S5K5E8YXREAR2_SENSOR_ID                 0x5e81
 #define S5K5E9_SENSOR_ID                        0x559b
-#define S5KHM2SP_SENSOR_ID                      0x1AD2
 /*HI*/
 #define HI841_SENSOR_ID                         0x0841
 #define HI707_SENSOR_ID                         0x00b8
@@ -348,6 +346,9 @@
 #define IMX686_SENSOR_ID                        0X0686
 #define IMX616_SENSOR_ID                        0x0616
 #define OV48C_SENSOR_ID                         0x564843
+#define IMX355_SENSOR_ID                        0x0355
+#define OV13B10_SENSOR_ID                       0x560d42
+#define OV02B10_SENSOR_ID                       0x002b
 
 
 #define OV48B_SENSOR_ID                         0x564842
@@ -359,6 +360,8 @@
 #define GC02K0_SENSOR_ID                        0x2385
 #define OV16A10_SENSOR_ID                       0x561641
 #define GC02M1B_SENSOR_ID                       0x02e0
+#define OV64B_SENSOR_ID                         0x5664
+#define IMX615_SENSOR_ID                        0x0615
 
 /* CAMERA DRIVER NAME */
 #define CAMERA_HW_DEVNAME                       "kd_camera_hw"
@@ -457,7 +460,6 @@
 /*S5K*/
 #define SENSOR_DRVNAME_S5KJD1_MIPI_RAW        "s5kjd1_mipi_raw"
 #define SENSOR_DRVNAME_S5K2LQSX_MIPI_RAW        "s5k2lqsx_mipi_raw"
-#define SENSOR_DRVNAME_S5K4H7_MIPI_RAW          "s5k4h7_mipi_raw"
 #define SENSOR_DRVNAME_S5K3P8SP_MIPI_RAW        "s5k3p8sp_mipi_raw"
 #define SENSOR_DRVNAME_S5K2T7SP_MIPI_RAW        "s5k2t7sp_mipi_raw"
 #define SENSOR_DRVNAME_S5K2T7SP_MIPI_RAW_5M     "s5k2t7sp_mipi_raw_5m"
@@ -487,7 +489,6 @@
 #define SENSOR_DRVNAME_S5K5E8YX_MIPI_RAW        "s5k5e8yx_mipi_raw"
 #define SENSOR_DRVNAME_S5K5E8YXREAR2_MIPI_RAW   "s5k5e8yxrear2_mipi_raw"
 #define SENSOR_DRVNAME_S5K5E9_MIPI_RAW          "s5k5e9_mipi_raw"
-#define SENSOR_DRVNAME_S5KHM2SP_MIPI_RAW        "s5khm2sp_mipi_raw"
 /*HI*/
 #define SENSOR_DRVNAME_HI841_MIPI_RAW           "hi841_mipi_raw"
 #define SENSOR_DRVNAME_HI707_YUV                "hi707_yuv"
@@ -573,6 +574,11 @@
 #define SENSOR_DRVNAME_OV16A10_MIPI_RAW         "ov16a10_mipi_raw"
 #define SENSOR_DRVNAME_GC02M1B_MIPI_MONO        "gc02m1b_mipi_mono"
 #define SENSOR_DRVNAME_OV48C_MIPI_RAW           "ov48c_mipi_raw"
+#define SENSOR_DRVNAME_IMX355_MIPI_RAW          "imx355_mipi_raw"
+#define SENSOR_DRVNAME_OV13B10_MIPI_RAW         "ov13b10_mipi_raw"
+#define SENSOR_DRVNAME_OV02B10_MIPI_RAW         "ov02b10_mipi_raw"
+#define SENSOR_DRVNAME_OV64B_MIPI_RAW           "ov64b_mipi_raw"
+#define SENSOR_DRVNAME_IMX615_MIPI_RAW          "imx615_mipi_raw"
 
 /******************************************************************************
  *
@@ -584,4 +590,37 @@ void KD_IMGSENSOR_PROFILE_I2C(char *tag, int trans_num);
 
 #define mDELAY(ms)     mdelay(ms)
 #define uDELAY(us)       udelay(us)
+
+/*pissarro camera*/
+#define S5KHM2SP_OFILM_SENSOR_ID                      0x1AD2
+#define S5KHM2SP_SUNNY_SENSOR_ID                      (0x1AD2 + 1)
+#define S5KHM2SP_OFILM_INDIA_SENSOR_ID                (0x1AD2 + 4)
+#define S5KHM2SP_SUNNY_INDIA_SENSOR_ID                (0x1AD2 + 5)
+#define S5KHM2SD_OFILM_SENSOR_ID                      0xFAD2
+#define S5KHM2SD_SUNNY_SENSOR_ID                      (0xFAD2 + 1)
+#define S5KHM2SD_OFILM_INDIA_SENSOR_ID                (0xFAD2 + 4)
+#define S5KHM2SD_SUNNY_INDIA_SENSOR_ID                (0xFAD2 + 5)
+#define IMX471_OFILM_SENSOR_ID                        0x0471
+#define IMX471_SUNNY_SENSOR_ID                        (0x0471 + 1)
+#define IMX471_OFILM_INDIA_SENSOR_ID                  (0x0471 + 4)
+#define IMX471_SUNNY_INDIA_SENSOR_ID                  (0x0471 + 5)
+#define S5K4H7_SUNNY_SENSOR_ID                        0x487B
+#define S5K4H7_AAC_SENSOR_ID                          (0x487B + 1)
+#define S5K4H7_SUNNY_INDIA_SENSOR_ID                  (0x487B + 4)
+#define S5K4H7_AAC_INDIA_SENSOR_ID                    (0x487B + 5)
+#define GC02M1_SUNNY_SENSOR_ID                        0x02e0
+#define GC02M1_OFILM_SENSOR_ID                        (0x02e0 + 1)
+#define GC02M1_SUNNY_INDIA_SENSOR_ID                  (0x02e0 + 4)
+#define GC02M1_OFILM_INDIA_SENSOR_ID                  (0x02e0 + 5)
+
+#define SENSOR_DRVNAME_S5KHM2SP_OFILM_MIPI_RAW        "s5khm2sp_ofilm_mipi_raw"
+#define SENSOR_DRVNAME_S5KHM2SP_SUNNY_MIPI_RAW        "s5khm2sp_sunny_mipi_raw"
+#define SENSOR_DRVNAME_S5KHM2SD_OFILM_MIPI_RAW        "s5khm2sd_ofilm_mipi_raw"
+#define SENSOR_DRVNAME_S5KHM2SD_SUNNY_MIPI_RAW        "s5khm2sd_sunny_mipi_raw"
+#define SENSOR_DRVNAME_IMX471_OFILM_MIPI_RAW          "imx471_ofilm_mipi_raw"
+#define SENSOR_DRVNAME_IMX471_SUNNY_MIPI_RAW          "imx471_sunny_mipi_raw"
+#define SENSOR_DRVNAME_S5K4H7_SUNNY_MIPI_RAW          "s5k4h7_sunny_mipi_raw"
+#define SENSOR_DRVNAME_S5K4H7_AAC_MIPI_RAW            "s5k4h7_aac_mipi_raw"
+#define SENSOR_DRVNAME_GC02M1_SUNNY_MIPI_RAW          "gc02m1_sunny_mipi_raw"
+#define SENSOR_DRVNAME_GC02M1_OFILM_MIPI_RAW          "gc02m1_ofilm_mipi_raw"
 #endif              /* _KD_IMGSENSOR_H */

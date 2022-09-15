@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2020 MediaTek Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/netfilter.h>
@@ -49,6 +50,7 @@ struct mddp_f_cb {
 	u_int16_t sport;
 	u_int16_t dport;
 	struct net_device *dev;
+	int ifindex;
 	u_int16_t v4_ip_id;
 	u_int8_t proto;
 };
@@ -707,7 +709,8 @@ static int mddp_f_tag_packet(
 		mddp_enqueue_dstate(MDDP_DSTATE_ID_NEW_TAG,
 					skb_tag->v2.ip, skb_tag->v2.port);
 
-		dev_queue_xmit(fake_skb);
+		if (cb->ifindex == mddp_f_get_wan_ifindex())
+			dev_queue_xmit(fake_skb);
 	}
 
 	return ret;

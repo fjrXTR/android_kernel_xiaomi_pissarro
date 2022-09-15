@@ -128,7 +128,9 @@ static struct timer_list scp_ready_timer[SCP_CORE_TOTAL];
 #endif
 static struct scp_work_struct scp_A_notify_work;
 
+#if SCP_BOOT_TIME_OUT_MONITOR
 static unsigned int scp_timeout_times;
+#endif
 
 static DEFINE_MUTEX(scp_A_notify_mutex);
 static DEFINE_MUTEX(scp_feature_mutex);
@@ -405,7 +407,9 @@ static void scp_A_notify_ws(struct work_struct *ws)
 	/*clear reset status and unlock wake lock*/
 	pr_debug("[SCP] clear scp reset flag and unlock\n");
 #ifndef CONFIG_FPGA_EARLY_PORTING
+#if SCP_DVFS_INIT_ENABLE
 	scp_resource_req(SCP_REQ_RELEASE);
+#endif
 #endif  // CONFIG_FPGA_EARLY_PORTING
 	/* register scp dvfs*/
 	msleep(2000);
@@ -1127,8 +1131,13 @@ static int scp_reserve_memory_ioremap(void)
 void set_scp_mpu(void)
 {
 	struct emimpu_region_t md_region;
+	int ret;
 
-	mtk_emimpu_init_region(&md_region, MPU_REGION_ID_SCP_SMEM);
+	ret = mtk_emimpu_init_region(&md_region, MPU_REGION_ID_SCP_SMEM);
+	if (ret) {
+		pr_err("[SCP]mtk_emimpu_init_region failed\n");
+		return;
+	}
 	mtk_emimpu_set_addr(&md_region, scp_mem_base_phys,
 		scp_mem_base_phys + scp_mem_size - 1);
 	mtk_emimpu_set_apc(&md_region, MPU_DOMAIN_D0,
@@ -1430,7 +1439,9 @@ void scp_sys_reset_ws(struct work_struct *ws)
 	__pm_stay_awake(&scp_reset_lock);
 #ifndef CONFIG_FPGA_EARLY_PORTING
 	/* keep Univpll */
+#if SCP_DVFS_INIT_ENABLE
 	scp_resource_req(SCP_REQ_26M);
+#endif
 #endif  // CONFIG_FPGA_EARLY_PORTING
 
 	/* print_clk and scp_aed before pll enable to keep ori CLK_SEL */
@@ -1835,7 +1846,9 @@ static int __init scp_init(void)
 
 #ifndef CONFIG_FPGA_EARLY_PORTING
 	/* keep Univpll */
+#if SCP_DVFS_INIT_ENABLE
 	scp_resource_req(SCP_REQ_26M);
+#endif
 #endif  // CONFIG_FPGA_EARLY_PORTING
 
 #if SCP_RESERVED_MEM && defined(CONFIG_OF_RESERVED_MEM)

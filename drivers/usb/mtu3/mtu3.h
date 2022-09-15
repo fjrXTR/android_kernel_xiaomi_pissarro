@@ -163,6 +163,14 @@ enum mtu3_g_ep0_state {
 	MU3D_EP0_STATE_STALL,
 };
 
+enum fpga_phy_version {
+	NO_PHY = 0,
+	A60930,
+	A60979,
+	A60931,
+	A60862,
+};
+
 /**
  * @base: the base address of fifo
  * @limit: the bitmap size in bits
@@ -305,6 +313,9 @@ struct ssusb_mtk {
 	struct dentry *dbgfs_root;
 	/* usb wakeup for host mode */
 	bool wakeup_en;
+	struct regmap *uwk;
+	u32 uwk_reg_base;
+	u32 uwk_vers;
 	/* keep clock and phy always on*/
 	bool keep_ao;
 	/* keep infra power on*/
@@ -319,6 +330,7 @@ struct ssusb_mtk {
 	enum mtu3_dr_force_mode drp_state;
 	struct charger_device *chg_dev;
 	void *priv_data;
+	enum fpga_phy_version fpga_phy_ver;
 };
 
 /**

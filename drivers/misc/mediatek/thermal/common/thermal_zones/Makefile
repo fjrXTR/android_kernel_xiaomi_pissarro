@@ -1,12 +1,15 @@
 # SPDX-License-Identifier: GPL-2.0
 #
 # Copyright (c) 2019 MediaTek Inc.
+# Copyright (C) 2021 XiaoMi, Inc.
 #
 
 ifeq ($(CONFIG_MACH_MT6833),y)
 	PDIR = mt6833
 else ifeq ($(CONFIG_MACH_MT6893),y)
 	PDIR = mt6893
+else ifeq ($(CONFIG_MACH_MT6877),y)
+	PDIR = mt6877
 else
 	PDIR = $(MTK_PLATFORM)
 endif
@@ -28,7 +31,11 @@ ifeq ($(CONFIG_MTK_TINYSYS_SSPM_SUPPORT),y)
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/sspm
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/sspm/v1
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/sspm/$(MTK_PLATFORM)
+ifeq ($(CONFIG_MACH_MT6877),y)
+ccflags-y  += -I$(srctree)/drivers/misc/mediatek/mcupm/$(MTK_PLATFORM)
+else
 ccflags-y  += -I$(srctree)/drivers/misc/mediatek/mcupm/$(PDIR)
+endif
 endif
 
 ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6735"))
@@ -64,7 +71,6 @@ endif
 
 obj-$(CONFIG_THERMAL) += mtk_tsAll.o
 endif
-
 
 
 ifneq (,$(filter $(CONFIG_MTK_PLATFORM), "mt6580"))
@@ -471,6 +477,12 @@ obj-$(CONFIG_THERMAL) += mtk_ts_pa_thput.o
 obj-$(CONFIG_THERMAL) += mtk_ts_pmic.o
 obj-$(CONFIG_THERMAL) += mtk_ts_charger.o
 #obj-$(CONFIG_THERMAL) += mtk_ts_charger2.o
+
+#obj-$(CONFIG_THERMAL) += mtk_ts_lcd_ntc.o
+obj-$(CONFIG_THERMAL) += mtk_ts_quiet.o
+obj-$(CONFIG_THERMAL) += mtk_ts_ntc.o
+obj-$(CONFIG_THERMAL) += mtk_ts_flash.o
+obj-$(CONFIG_THERMAL) += mtk_ts_wifi.o
 
 
 ifneq ($(CONFIG_MTK_COMBO_WIFI),)

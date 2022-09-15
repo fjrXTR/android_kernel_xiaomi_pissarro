@@ -116,6 +116,7 @@ static void __iomem *csram_base;
 static struct cpu_dvfs_log_box log_box_parsed[1 + MAX_LOG_FETCH];
 #ifdef DSU_DVFS_ENABLE
 unsigned int force_disable;
+unsigned int last_status;
 #endif
 
 void parse_time_log_content(unsigned int time_stamp_l_log,
@@ -316,9 +317,6 @@ int Ripi_cpu_dvfs_thread(void *data)
 				p->mt_policy->max =
 					cpu_dvfs_get_freq_by_idx(p,
 					p->idx_opp_ppm_limit);
-				p->mt_policy->min =
-					(p->mt_policy->min > p->mt_policy->max) ?
-					p->mt_policy->max : p->mt_policy->min;
 
 #ifdef SINGLE_CLUSTER
 				cid =
@@ -347,32 +345,29 @@ int Ripi_cpu_dvfs_thread(void *data)
 				}
 #endif
 
-#if defined(CONFIG_MACH_MT6893)
+#if defined(CONFIG_MACH_MT6893) || defined(CONFIG_MACH_MT6877)
 				if (p->mt_policy->cur > p->mt_policy->max) {
 					freqs.old = p->mt_policy->cur;
 					freqs.new = p->mt_policy->max;
 					cpufreq_freq_transition_begin(p->mt_policy, &freqs);
 					cpufreq_freq_transition_end(p->mt_policy, &freqs, 0);
 					p->idx_opp_tbl = _search_available_freq_idx(p,
-										    freqs.new,
-										    0);
+						freqs.new, 0);
 				} else if (p->mt_policy->cur < p->mt_policy->min) {
 					freqs.old = p->mt_policy->cur;
 					freqs.new = p->mt_policy->min;
 					cpufreq_freq_transition_begin(p->mt_policy, &freqs);
 					cpufreq_freq_transition_end(p->mt_policy, &freqs, 0);
 					p->idx_opp_tbl = _search_available_freq_idx(p,
-										    freqs.new,
-										    0);
+						freqs.new, 0);
 				} else if (cpu_dvfs_get_freq_by_idx(p, p->idx_opp_tbl) !=
-					   p->mt_policy->cur) {
+						p->mt_policy->cur) {
 					freqs.old = cpu_dvfs_get_freq_by_idx(p, p->idx_opp_tbl);
 					freqs.new = p->mt_policy->cur;
 					cpufreq_freq_transition_begin(p->mt_policy, &freqs);
 					cpufreq_freq_transition_end(p->mt_policy, &freqs, 0);
 					p->idx_opp_tbl = _search_available_freq_idx(p,
-										    freqs.new,
-										    0);
+						freqs.new, 0);
 				}
 #endif
 				trace_cpu_frequency_limits(p->mt_policy->max,
@@ -383,8 +378,7 @@ int Ripi_cpu_dvfs_thread(void *data)
 				if (p->idx_opp_tbl != j ||
 				(p->idx_opp_ppm_limit != previous_limit) ||
 				(p->idx_opp_ppm_base != previous_base)) {
-#if defined(CONFIG_MACH_MT6893)
-#else
+#if !defined(CONFIG_MACH_MT6893) && !defined(CONFIG_MACH_MT6877)
 					freqs.old = cpu_dvfs_get_cur_freq(p);
 					freqs.new =
 					cpu_dvfs_get_freq_by_idx(p, j);
@@ -427,7 +421,7 @@ int dvfs_to_mcupm_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 		if (ret != 0) {
 			cpufreq_ver("#@# %s(%d) mcupm_ipi_send_sync ret %d\n",
 			__func__, __LINE__, ret);
-		} else {
+		} else if (ack_data < 0) {
 			ret = ack_data;
 			cpufreq_ver("#@# %s(%d) cmd(%d) return %d\n",
 			__func__, __LINE__, cmd, ret);
@@ -448,7 +442,7 @@ int dvfs_to_mcupm_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 		if (ret != 0) {
 			cpufreq_ver("#@# %s(%d) mcupm_ipi_send_sync ret %d\n",
 			__func__, __LINE__, ret);
-		} else {
+		} else if (ack_data < 0) {
 			ret = ack_data;
 			cpufreq_ver("#@# %s(%d) cmd(%d) return %d\n",
 			__func__, __LINE__, cmd, ret);
@@ -478,7 +472,7 @@ int dvfs_to_mcupm_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 			cpufreq_ver("#@# %s(%d) mcupm_ipi_send_sync ret %d\n",
 			__func__, __LINE__, ret);
 #endif
-		} else {
+		} else if (ack_data < 0) {
 			tag_pr_notice
 			("ret = %d, set cluster%d ON/OFF state to %d\n",
 			ret, cdvfs_d->u.set_fv.arg[0],
@@ -504,7 +498,7 @@ int dvfs_to_mcupm_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 		if (ret != 0) {
 			cpufreq_ver("#@# %s(%d) mcupm_ipi_send_sync ret %d\n",
 			__func__, __LINE__, ret);
-		} else {
+		} else if (ack_data < 0) {
 			ret = ack_data;
 			cpufreq_ver("#@# %s(%d) cmd(%d) return %d\n",
 			__func__, __LINE__, cmd, ret);
@@ -523,7 +517,7 @@ int dvfs_to_mcupm_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 		if (ret != 0) {
 			cpufreq_ver("#@# %s(%d) mcupm_ipi_send_sync ret %d\n",
 			__func__, __LINE__, ret);
-		} else {
+		} else if (ack_data < 0) {
 			ret = ack_data;
 			cpufreq_ver("#@# %s(%d) cmd(%d) return %d\n",
 			__func__, __LINE__, cmd, ret);
@@ -543,7 +537,7 @@ int dvfs_to_mcupm_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 		if (ret != 0) {
 			cpufreq_ver("#@# %s(%d) mcupm_ipi_send_sync ret %d\n",
 			__func__, __LINE__, ret);
-		} else {
+		} else if (ack_data < 0) {
 			ret = ack_data;
 			cpufreq_ver("#@# %s(%d) cmd(%d) return %d\n",
 			__func__, __LINE__, cmd, ret);
@@ -564,7 +558,7 @@ int dvfs_to_mcupm_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 		if (ret != 0) {
 			cpufreq_ver("#@# %s(%d) mcupm_ipi_send_sync ret %d\n",
 			__func__, __LINE__, ret);
-		} else {
+		} else if (ack_data < 0) {
 			ret = ack_data;
 			cpufreq_ver("#@# %s(%d) cmd(%d) return %d\n",
 			__func__, __LINE__, cmd, ret);
@@ -585,7 +579,7 @@ int dvfs_to_mcupm_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 		if (ret != 0) {
 			cpufreq_ver("#@# %s(%d) mcupm_ipi_send_sync ret %d\n",
 			__func__, __LINE__, ret);
-		} else {
+		} else if (ack_data < 0) {
 			ret = ack_data;
 			cpufreq_ver("#@# %s(%d) cmd(%d) return %d\n",
 			__func__, __LINE__, cmd, ret);
@@ -605,7 +599,7 @@ int dvfs_to_mcupm_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 		if (ret != 0) {
 			cpufreq_ver("#@# %s(%d) mcupm_ipi_send_sync ret %d\n",
 			__func__, __LINE__, ret);
-		} else {
+		} else if (ack_data < 0) {
 			ret = ack_data;
 			cpufreq_ver("#@# %s(%d) cmd(%d) return %d\n",
 			__func__, __LINE__, cmd, ret);
@@ -628,7 +622,7 @@ int dvfs_to_mcupm_command(u32 cmd, struct cdvfs_data *cdvfs_d)
 		if (ret != 0) {
 			cpufreq_ver("#@# %s(%d) mcupm_ipi_send_sync ret %d\n",
 			__func__, __LINE__, ret);
-		} else {
+		} else if (ack_data < 0) {
 			ret = ack_data;
 			cpufreq_ver("#@# %s(%d) cmd(%d) return %d\n",
 			__func__, __LINE__, cmd, ret);
@@ -1124,8 +1118,6 @@ int cpuhvfs_set_init_volt(void)
 	for_each_cpu_dvfs(j, p) {
 		vproc_p = id_to_buck_ctrl(p->Vproc_buck_id);
 		vsram_p = id_to_buck_ctrl(p->Vsram_buck_id);
-		if (vproc_p == NULL || vsram_p == NULL)
-			return 0;
 		cdvfs_d.u.set_fv.arg[0] = j;
 		cdvfs_d.u.set_fv.arg[1] = (p->dvfs_disable_by_suspend) ?
 				vproc_p->cur_volt :
@@ -1505,15 +1497,10 @@ void cpuhvfs_update_cci_map_tbl(unsigned int idx_1, unsigned int idx_2,
 void cpuhvfs_update_cci_mode(unsigned int mode, unsigned int use_id)
 {
 	/* mode = 0(Normal as 50%) mode = 1(Perf as 70%) */
-#ifdef ENABLE_DOE
-	struct cpudvfs_doe *d = &dvfs_doe;
-
-	if (!d->state)
-		return;
-#endif
 
 #ifdef DSU_DVFS_ENABLE
-	if (use_id == FPS_PERF && force_disable)
+	if ((use_id == FPS_PERF && force_disable) ||
+		(use_id == FPS_PERF && last_status == mode))
 		return;
 	if (!use_id) {
 		if (mode == PERF) {
@@ -1524,10 +1511,14 @@ void cpuhvfs_update_cci_mode(unsigned int mode, unsigned int use_id)
 			force_disable = 0;
 		}
 	}
+	if (use_id == FPS_PERF)
+		last_status = mode;
+
 #endif
 	csram_write(OFFS_CCI_TBL_USER, use_id);
 	csram_write(OFFS_CCI_TBL_MODE, mode);
 	csram_write(OFFS_CCI_TOGGLE_BIT, 1);
+
 }
 
 unsigned int cpuhvfs_get_cci_mode(void)
@@ -1562,6 +1553,25 @@ int cpuhvfs_update_volt(unsigned int cluster_id, unsigned int *volt_tbl,
 
 	return 0;
 }
+
+#ifdef READ_SRAM_VOLT
+unsigned int get_sram_table_volt(unsigned int cluster_id, int idx)
+{
+	unsigned int volt;
+	struct buck_ctrl_t *vproc_p;
+	struct mt_cpu_dvfs *p;
+
+
+	p = id_to_cpu_dvfs(cluster_id);
+	vproc_p = id_to_buck_ctrl(p->Vproc_buck_id);
+
+	volt = vproc_p->buck_ops->transfer2volt
+		((recordRef[idx + 36 * cluster_id] >> 16) & 0xFFF);
+
+	return volt;
+}
+#endif
+
 #ifdef ENABLE_DOE
 void update_pvt_tbl_by_doe(void)
 {

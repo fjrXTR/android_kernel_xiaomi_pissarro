@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (C) 2018 MediaTek Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  */
 
@@ -175,8 +176,8 @@ static int led_level_disp_set(struct mtk_led_data *s_led,
 		output_met_backlight_tag(brightness);
 #endif
 #ifdef CONFIG_DRM_MEDIATEK
-	mtkfb_set_backlight_level(brightness);
 	s_led->conf.level = brightness;
+	mtkfb_set_backlight_level(brightness);
 #endif
 	return 0;
 

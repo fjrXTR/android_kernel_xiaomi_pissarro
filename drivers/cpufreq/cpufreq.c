@@ -2,6 +2,7 @@
  *  linux/drivers/cpufreq/cpufreq.c
  *
  *  Copyright (C) 2001 Russell King
+ *  Copyright (C) 2021 XiaoMi, Inc.
  *            (C) 2002 - 2003 Dominik Brodowski <linux@brodo.de>
  *            (C) 2013 Viresh Kumar <viresh.kumar@linaro.org>
  *
@@ -406,8 +407,7 @@ wait:
 	policy->transition_task = current;
 
 	spin_unlock(&policy->transition_lock);
-#if defined(CONFIG_MACH_MT6893)
-#else
+#if !defined(CONFIG_MACH_MT6893) && !defined(CONFIG_MACH_MT6877)
 	arch_set_freq_scale(policy->cpus, freqs->new, policy->cpuinfo.max_freq);
 #endif
 	arch_set_max_freq_scale(policy->cpus, policy->max);
@@ -2240,6 +2240,10 @@ static int cpufreq_set_policy(struct cpufreq_policy *policy,
 	/* adjust if necessary - all reasons */
 	blocking_notifier_call_chain(&cpufreq_policy_notifier_list,
 			CPUFREQ_ADJUST, new_policy);
+
+	/* the adjusted frequency should not exceed thermal limit */
+	blocking_notifier_call_chain(&cpufreq_policy_notifier_list,
+			CPUFREQ_THERMAL, new_policy);
 
 	/*
 	 * verify the cpu speed can be set within this limit, which might be

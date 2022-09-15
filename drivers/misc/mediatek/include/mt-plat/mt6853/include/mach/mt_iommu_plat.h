@@ -11,6 +11,9 @@
  * See http://www.gnu.org/licenses/gpl-2.0.html for more details.
  */
 
+#if defined CONFIG_MACH_MT6877
+#include "../../../mt6877/include/mach/mt_iommu_plat.h"
+#else
 #ifndef __MT_IOMMU_PLAT_H__
 #define __MT_IOMMU_PLAT_H__
 
@@ -25,12 +28,18 @@
 
 #ifdef IOMMU_POWER_CLK_SUPPORT
 #define MTK_IOMMU_LOW_POWER_SUPPORT
-#define MTK_DISABLE_DCM_SUPPORT
 #define MTK_WARN_PSEDUO_FIND_SG
+#if IS_ENABLED(CONFIG_MACH_MT6833)
+#include "clk-mt6833-pg.h"
+#else
 #include "clk-mt6853-pg.h"
+#endif
 
 enum subsys_id iommu_mtcmos_subsys[MTK_IOMMU_M4U_COUNT] = {
-	SYS_DIS, SYS_VPU
+	SYS_DIS,
+#ifdef CONFIG_MTK_APUSYS_SUPPORT
+	SYS_VPU
+#endif
 };
 #endif
 #endif
@@ -61,7 +70,12 @@ enum subsys_id iommu_mtcmos_subsys[MTK_IOMMU_M4U_COUNT] = {
 #ifdef CONFIG_FPGA_EARLY_PORTING
 static unsigned int g_tag_count[MTK_IOMMU_M4U_COUNT] = {64};
 #else
-static unsigned int g_tag_count[MTK_IOMMU_M4U_COUNT] = {64, 64};
+static unsigned int g_tag_count[MTK_IOMMU_M4U_COUNT] = {
+		64,
+#ifdef CONFIG_MTK_APUSYS_SUPPORT
+		64,
+#endif
+		};
 #endif
 
 char *smi_clk_name[MTK_IOMMU_LARB_NR] = {
@@ -86,12 +100,17 @@ char *iommu_secure_compatible[MTK_IOMMU_M4U_COUNT] = {
 };
 #else
 char *iommu_secure_compatible[MTK_IOMMU_M4U_COUNT] = {
-	"mediatek,sec_m4u0", "mediatek,sec_m4u1",
+	"mediatek,sec_m4u0",
+#ifdef CONFIG_MTK_APUSYS_SUPPORT
+	"mediatek,sec_m4u1",
+#endif
 };
 
 char *iommu_bank_compatible[MTK_IOMMU_M4U_COUNT][MTK_IOMMU_BANK_NODE_COUNT] = {
 	{"mediatek,bank1_m4u0", "mediatek,bank2_m4u0", "mediatek,bank3_m4u0"},
+#ifdef CONFIG_MTK_APUSYS_SUPPORT
 	{"mediatek,bank1_m4u1", "mediatek,bank2_m4u1", "mediatek,bank3_m4u1"},
+#endif
 };
 #endif
 
@@ -490,8 +509,13 @@ struct mtk_iova_domain_data {
 #define RESERVED_IOVA_SIZE_APU_CODE	(0x0012600000UL)
 #define RESERVED_IOVA_ADDR_APU_DATA	(0x0310000000UL)
 #define RESERVED_IOVA_SIZE_APU_DATA	(0x0010000000UL)
+#if defined(CONFIG_MACH_MT6877)
+#define RESERVED_IOVA_ADDR_APU_VLM	(0x0308000000UL)
+#define RESERVED_IOVA_SIZE_APU_VLM	(0x0002000000UL)
+#else
 #define RESERVED_IOVA_ADDR_APU_VLM	(0x0304000000UL)
 #define RESERVED_IOVA_SIZE_APU_VLM	(0x0004000000UL)
+#endif
 #define IOVA_ADDR_4GB			(1UL << 32)
 #define IOVA_ADDR_8GB			(2UL << 32)
 #define IOVA_ADDR_12GB			(3UL << 32)
@@ -647,8 +671,13 @@ const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 #define RESERVED_IOVA_SIZE_APU_CODE	(0x12600000U)
 #define RESERVED_IOVA_ADDR_APU_DATA	(0x10000000U)
 #define RESERVED_IOVA_SIZE_APU_DATA	(0x10000000U)
+#if defined(CONFIG_MACH_MT6877)
+#define RESERVED_IOVA_ADDR_APU_VLM	(0x48000000U)
+#define RESERVED_IOVA_SIZE_APU_VLM	(0x02000000U)
+#else
 #define RESERVED_IOVA_ADDR_APU_VLM	(0x48000000U)
 #define RESERVED_IOVA_SIZE_APU_VLM	(0x04000000U)
+#endif
 const struct mtk_iova_domain_data mtk_domain_array[MTK_IOVA_DOMAIN_COUNT] = {
 #if (defined(CONFIG_MTK_SEC_VIDEO_PATH_SUPPORT) || \
 	defined(CONFIG_MTK_CAM_SECURITY_SUPPORT)) || \
@@ -761,6 +790,7 @@ struct mau_config_info mt6853_mau_info[MTK_IOMMU_M4U_COUNT] = {
 		.start_bit32 = 0x4,
 		.end_bit32 = 0x7,
 	},
+#ifdef CONFIG_MTK_APUSYS_SUPPORT
 	{
 		.start = 0x40000000,
 		.end = 0xffffffff,
@@ -772,6 +802,7 @@ struct mau_config_info mt6853_mau_info[MTK_IOMMU_M4U_COUNT] = {
 		.start_bit32 = 0x4,
 		.end_bit32 = 0x7,
 	}
+#endif
 };
 
 struct mau_config_info *get_mau_info(int m4u_id)
@@ -782,4 +813,5 @@ struct mau_config_info *get_mau_info(int m4u_id)
 		return NULL;
 }
 
+#endif
 #endif

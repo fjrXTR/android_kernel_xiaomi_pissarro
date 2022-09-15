@@ -127,6 +127,7 @@ struct mtk_disp_postmask {
 	unsigned int abnormal_cnt;
 };
 
+#ifdef CONFIG_MTK_ROUND_CORNER_SUPPORT
 static irqreturn_t mtk_postmask_irq_handler(int irq, void *dev_id)
 {
 	struct mtk_disp_postmask *priv = dev_id;
@@ -182,6 +183,7 @@ out:
 
 	return ret;
 }
+#endif
 
 static void mtk_postmask_config(struct mtk_ddp_comp *comp,
 				struct mtk_ddp_config *cfg,
@@ -196,18 +198,8 @@ static void mtk_postmask_config(struct mtk_ddp_comp *comp,
 	unsigned int num = 0;
 #else
 	struct mtk_drm_gem_obj *gem;
-	unsigned int size = 0;
-	unsigned int addr = 0;
-	unsigned int force_relay = 0;
 #endif
 #endif
-	unsigned int width;
-
-	if (comp->mtk_crtc->is_dual_pipe)
-		width = cfg->w / 2;
-	else
-		width = cfg->w;
-
 	value = (REG_FLD_VAL((BLEND_CFG_FLD_A_EN), 1) |
 		 REG_FLD_VAL((BLEND_CFG_FLD_PARGB_BLD), 0) |
 		 REG_FLD_VAL((BLEND_CFG_FLD_CONST_BLD), 0));
@@ -217,7 +209,7 @@ static void mtk_postmask_config(struct mtk_ddp_comp *comp,
 			      handle);
 	mtk_ddp_write_relaxed(comp, 0xff000000, DISP_POSTMASK_MASK_CLR, handle);
 
-	value = (width << 16) + cfg->h;
+	value = (cfg->w << 16) + cfg->h;
 	mtk_ddp_write_relaxed(comp, value, DISP_POSTMASK_SIZE, handle);
 
 	if (!panel_ext)
@@ -283,43 +275,20 @@ static void mtk_postmask_config(struct mtk_ddp_comp *comp,
 				      DISP_POSTMASK_RDMA_BUF_HIGH_TH, handle);
 
 #ifdef POSTMASK_DRAM_MODE
-		if (comp->mtk_crtc->is_dual_pipe) {
-			if (comp->id == DDP_COMPONENT_POSTMASK0 &&
-			    comp->mtk_crtc->round_corner_gem_l &&
-			    panel_ext->corner_pattern_tp_size_l) {
-				gem = comp->mtk_crtc->round_corner_gem_l;
-				addr = (unsigned int)gem->dma_addr;
-				size = panel_ext->corner_pattern_tp_size_l;
-			} else if (comp->id == DDP_COMPONENT_POSTMASK1 &&
-			    comp->mtk_crtc->round_corner_gem_r &&
-			    panel_ext->corner_pattern_tp_size_r) {
-				gem = comp->mtk_crtc->round_corner_gem_r;
-				addr = (unsigned int)gem->dma_addr;
-				size = panel_ext->corner_pattern_tp_size_r;
-			}
-		} else if (comp->mtk_crtc->round_corner_gem &&
-			   panel_ext->corner_pattern_tp_size) {
-			gem = comp->mtk_crtc->round_corner_gem;
-			addr = (unsigned int)gem->dma_addr;
-			size = panel_ext->corner_pattern_tp_size;
-		}
-
-		if (addr == 0 || size == 0) {
-			DDPPR_ERR("invalid postmaks addr/size\n");
-			force_relay = 1;
-		}
-		value = (REG_FLD_VAL((CFG_FLD_RELAY_MODE), force_relay) |
+		value = (REG_FLD_VAL((CFG_FLD_RELAY_MODE), 0) |
 			 REG_FLD_VAL((CFG_FLD_DRAM_MODE), 1) |
 			 REG_FLD_VAL((CFG_FLD_BGCLR_IN_SEL), 1) |
 			 REG_FLD_VAL((CFG_FLD_GCLAST_EN), 1) |
 			 REG_FLD_VAL((CFG_FLD_STALL_CG_ON), 1));
 		mtk_ddp_write_relaxed(comp, value, DISP_POSTMASK_CFG, handle);
 
-		mtk_ddp_write_relaxed(comp, addr, DISP_POSTMASK_MEM_ADDR,
+		gem = comp->mtk_crtc->round_corner_gem;
+		value = (unsigned int)gem->dma_addr;
+		mtk_ddp_write_relaxed(comp, value, DISP_POSTMASK_MEM_ADDR,
 				      handle);
 
-		mtk_ddp_write_relaxed(comp, size, DISP_POSTMASK_MEM_LENGTH,
-				      handle);
+		mtk_ddp_write_relaxed(comp, panel_ext->corner_pattern_tp_size,
+				      DISP_POSTMASK_MEM_LENGTH, handle);
 #else
 		value = (REG_FLD_VAL((CFG_FLD_RELAY_MODE), 0) |
 			 REG_FLD_VAL((CFG_FLD_DRAM_MODE), 0) |
@@ -532,7 +501,9 @@ static int mtk_disp_postmask_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct mtk_disp_postmask *priv;
 	enum mtk_ddp_comp_id comp_id;
+#ifdef CONFIG_MTK_ROUND_CORNER_SUPPORT
 	int irq;
+#endif
 	int ret;
 
 	DDPINFO("%s+\n", __func__);
@@ -541,9 +512,11 @@ static int mtk_disp_postmask_probe(struct platform_device *pdev)
 	if (priv == NULL)
 		return -ENOMEM;
 
+#ifdef CONFIG_MTK_ROUND_CORNER_SUPPORT
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0)
 		return irq;
+#endif
 
 	comp_id = mtk_ddp_comp_get_id(dev->of_node, MTK_DISP_POSTMASK);
 	if ((int)comp_id < 0) {
@@ -559,7 +532,7 @@ static int mtk_disp_postmask_probe(struct platform_device *pdev)
 	}
 
 	platform_set_drvdata(pdev, priv);
-
+#ifdef CONFIG_MTK_ROUND_CORNER_SUPPORT
 	ret = devm_request_irq(dev, irq, mtk_postmask_irq_handler,
 			       IRQF_TRIGGER_NONE | IRQF_SHARED, dev_name(dev),
 			       priv);
@@ -569,7 +542,7 @@ static int mtk_disp_postmask_probe(struct platform_device *pdev)
 				irq, ret, comp_id);
 		return ret;
 	}
-
+#endif
 	pm_runtime_enable(dev);
 
 	ret = component_add(dev, &mtk_disp_postmask_component_ops);
@@ -606,6 +579,10 @@ static const struct mtk_disp_postmask_data mt6853_postmask_driver_data = {
 	.support_shadow = false,
 };
 
+static const struct mtk_disp_postmask_data mt6877_postmask_driver_data = {
+	.support_shadow = false,
+};
+
 static const struct mtk_disp_postmask_data mt6833_postmask_driver_data = {
 	.support_shadow = false,
 };
@@ -619,6 +596,8 @@ static const struct of_device_id mtk_disp_postmask_driver_dt_match[] = {
 	  .data = &mt6873_postmask_driver_data},
 	{ .compatible = "mediatek,mt6853-disp-postmask",
 	  .data = &mt6853_postmask_driver_data},
+	{ .compatible = "mediatek,mt6877-disp-postmask",
+	  .data = &mt6877_postmask_driver_data},
 	{ .compatible = "mediatek,mt6833-disp-postmask",
 	  .data = &mt6833_postmask_driver_data},
 	{},

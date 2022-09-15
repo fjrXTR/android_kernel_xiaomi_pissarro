@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2017 MediaTek Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -51,6 +52,8 @@
 #define OFFSET_CCU_INT_TRG (0x3C/4)
 #define CCU_IPC_IBUF_CAPACITY (1024*5) //4k
 #define CCU_IPC_OBUF_CAPACITY (1024*2) //1k
+
+#define CCU_STRUCT_SIZE_CAPACITY (6)
 
 #define MMU_ENABLE_BIT           0x33//ccu Cache to EMI enable
 #endif

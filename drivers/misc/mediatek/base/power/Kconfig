@@ -119,9 +119,17 @@ config MTK_QOS_V2
 	default y if MACH_MT6873
 	default y if MACH_MT6853
 	default y if MACH_MT6893
+	default y if MACH_MT6833
+	default y if MACH_MT6877
 	select MTK_QOS_FRAMEWORK
 	---help---
 	  This version support QOS version 2.0 feature sets.
 	  It supports BW prediction, BW bound detection, and BW limiter.
 	  It is also mapped with sspm qos v2.
 	  If unsure, say N.
+
+config MTK_NFC_CLKBUF_ENABLE
+        bool "MTK NFC clock enable"
+	default y
+	---help---
+	  This version support MTK NFC clock enable

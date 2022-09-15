@@ -75,6 +75,8 @@ static struct i2c_board_info kd_lens_dev __initdata = {
 #define LOG_INF(format, args...)
 #endif
 
+extern int camera_power;
+
 /* OIS/EIS Timer & Workqueue */
 static struct workqueue_struct *ois_workqueue;
 static struct work_struct ois_work;
@@ -121,6 +123,8 @@ static struct stAF_DrvList g_stAF_DrvList[MAX_NUM_OF_LENS] = {
 	 LC898212XDAF_Release, LC898212XDAF_GetFileName, NULL},
 	{1, AFDRV_DW9800WAF, DW9800WAF_SetI2Cclient, DW9800WAF_Ioctl,
 	DW9800WAF_Release, DW9800WAF_GetFileName, NULL},
+	{1, AFDRV_DW9800VAF, DW9800VAF_SetI2Cclient, DW9800VAF_Ioctl,
+	DW9800VAF_Release, DW9800VAF_GetFileName, NULL},
 	{1, AFDRV_DW9814AF, DW9814AF_SetI2Cclient, DW9814AF_Ioctl,
 	 DW9814AF_Release, DW9814AF_GetFileName, NULL},
 	{1, AFDRV_DW9839AF, DW9839AF_SetI2Cclient, DW9839AF_Ioctl,
@@ -260,7 +264,7 @@ static int af_pinctrl_set(int pin, int state)
 static struct regulator *regVCAMAF;
 static int g_regVCAMAFEn;
 
-void AFRegulatorCtrl(int Stage)
+static void AFRegulatorCtrl(int Stage)
 {
 	LOG_INF("AFIOC_S_SETPOWERCTRL regulator_put %p\n", regVCAMAF);
 
@@ -285,6 +289,22 @@ void AFRegulatorCtrl(int Stage)
 				#elif defined(CONFIG_MACH_MT6771)
 				regVCAMAF =
 					regulator_get(lens_device, "vldo28");
+				#elif defined(CONFIG_MACH_MT6833)
+				if (strncmp(CONFIG_ARCH_MTK_PROJECT,
+					"k6833v1_64_6360_alpha", 20) == 0) {
+					regVCAMAF =
+					regulator_get(lens_device, "vmch");
+				} else {
+					#if defined(CONFIG_REGULATOR_MT6317)
+					regVCAMAF =
+					regulator_get(lens_device, "mt6317-ldo3");
+					LOG_INF("regulator_get(%s)\n", "mt6317-ldo3");
+					#else
+					regVCAMAF =
+					regulator_get(lens_device, "vcamio");
+					LOG_INF("regulator_get(%s)\n", "vcamio");
+					#endif
+				}
 				#elif defined(CONFIG_MACH_MT6853)
 				if (strncmp(CONFIG_ARCH_MTK_PROJECT,
 					"k6853v1_64_6360_alpha", 20) == 0) {
@@ -302,6 +322,20 @@ void AFRegulatorCtrl(int Stage)
 				} else {
 					regVCAMAF =
 					regulator_get(lens_device, "vcamio");
+				}
+				#elif defined(CONFIG_MACH_MT6877)
+				if (strncmp(CONFIG_ARCH_MTK_PROJECT,
+					"k6877v1_64", 10) == 0) {
+					regVCAMAF =
+					regulator_get(lens_device, "cam0_vcamaf");
+					LOG_INF("%s :camera_power= %d\n",__func__,camera_power);
+					if(camera_power == 2){
+					regVCAMAF =
+						regulator_get(lens_device, "cam0_vcamafw");
+					}
+				} else {
+					regVCAMAF =
+					regulator_get(lens_device, "rt5133-ldo3");
 				}
 				#elif defined(CONFIG_MACH_MT6885) || defined(CONFIG_MACH_MT6893)
 				if (strncmp(CONFIG_ARCH_MTK_PROJECT,

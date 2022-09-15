@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2019 MediaTek Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  * Author: Sagy Shih <sagy.shih@mediatek.com>
  */
 
@@ -17,9 +18,58 @@
 #include <linux/interrupt.h>
 #include <memory/mediatek/dramc.h>
 #include <linux/bug.h>
+#include <linux/proc_fs.h>
+#include <linux/seq_file.h>
 
 static struct platform_device *dramc_pdev;
 static struct platform_driver dramc_drv;
+
+
+static int ddr_info_show(struct seq_file *m, void *v)
+{
+	struct dramc_dev_t *dramc_dev_ptr =
+                (struct dramc_dev_t *)platform_get_drvdata(dramc_pdev);
+
+	unsigned char buf[128];
+	ssize_t ret = 0;
+	unsigned int density, rank, vendor_id;
+
+	/*ddr density*/
+	for (rank = 0, density = 0; rank < dramc_dev_ptr->rk_cnt ; rank++)
+		density += dramc_dev_ptr->rk_size[rank];
+
+	density *= 128;
+
+	/*ddr vendor id*/
+	vendor_id = (dramc_dev_ptr->mr_info_ptr[0].mr_value) & 0xff;
+
+	ret += snprintf(buf + ret, sizeof(buf) - ret,
+		"Vendor ID: 0x%x\n", vendor_id);
+	ret += snprintf(buf + ret, sizeof(buf) - ret,
+		"DRAM Density: %d MB\n", density);
+	ret += snprintf(buf + ret, sizeof(buf) - ret,
+		"DRAM Type: 0x%x\n", dramc_dev_ptr->dram_type);
+	ret += snprintf(buf + ret, sizeof(buf) - ret,
+		"DRAM RK CNT: 0x%x\n", dramc_dev_ptr->rk_cnt);
+	ret += snprintf(buf + ret, sizeof(buf) - ret,
+		"DRAM CH CNT: 0x%x\n", dramc_dev_ptr->ch_cnt);
+
+	seq_write(m, buf, ret);
+
+	return 0;
+}
+
+static int ddr_info_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, ddr_info_show, NULL);
+}
+
+static const struct file_operations ddr_info_proc_fops = {
+	.open = ddr_info_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
 
 static int mr4_v1_init(struct platform_device *pdev,
 	struct mr4_dev_t *mr4_dev_ptr)
@@ -69,6 +119,8 @@ static int fmeter_v1_init(struct platform_device *pdev,
 		"dqsopen", (unsigned int *)(fmeter_dev_ptr->dqsopen), 6);
 	ret |= of_property_read_u32_array(dramc_node,
 		"dqopen", (unsigned int *)(fmeter_dev_ptr->dqopen), 6);
+	ret |= of_property_read_u32_array(dramc_node,
+		"ckdiv4_ca", (unsigned int *)(fmeter_dev_ptr->ckdiv4_ca), 6);
 
 	return ret;
 }
@@ -141,6 +193,7 @@ static int dramc_probe(struct platform_device *pdev)
 {
 	struct device_node *dramc_node = pdev->dev.of_node;
 	struct dramc_dev_t *dramc_dev_ptr;
+	struct proc_dir_entry *proc_entry;
 	unsigned int mr4_version;
 	unsigned int fmeter_version;
 	struct resource *res;
@@ -381,6 +434,9 @@ static int dramc_probe(struct platform_device *pdev)
 		}
 	}
 
+
+	proc_entry = proc_create("ddr_info", 0444, NULL, &ddr_info_proc_fops);
+
 	platform_set_drvdata(pdev, dramc_dev_ptr);
 	pr_info("%s: DRAM data type = %d\n", __func__,
 		mtk_dramc_get_ddr_type());
@@ -460,18 +516,24 @@ static unsigned int decode_freq(unsigned int vco_freq)
 	case 4264:
 		return 4266;
 	case 3718:
+	case 3588:
 		return 3733;
 	case 3068:
 		return 3200;
+	case 2652:
+		return 2667;
 	case 2366:
 		return 2400;
 	case 1859:
+	case 1794:
 		return 1866;
 	case 1534:
 		return 1600;
 	case 1144:
+	case 1196:
 		return 1200;
 	case 754:
+	case 799:
 		return 800;
 	case 396:
 		return 400;
@@ -497,6 +559,7 @@ static unsigned int fmeter_v1(struct dramc_dev_t *dramc_dev_ptr)
 	unsigned int fbksel;
 	unsigned int dqsopen;
 	unsigned int dqopen;
+	unsigned int ckdiv4_ca_val;
 
 	shu_lv_val = (readl(dramc_dev_ptr->ddrphy_chn_base_nao[0] +
 		fmeter_dev_ptr->shu_lv.offset) &
@@ -562,12 +625,20 @@ static unsigned int fmeter_v1(struct dramc_dev_t *dramc_dev_ptr)
 		fmeter_dev_ptr->dqopen[pll_id_val].mask) >>
 		fmeter_dev_ptr->dqopen[pll_id_val].shift;
 
+	offset = fmeter_dev_ptr->ckdiv4_ca[pll_id_val].offset +
+		fmeter_dev_ptr->shu_of * shu_lv_val;
+	ckdiv4_ca_val = (readl(dramc_dev_ptr->ddrphy_chn_base_ao[0] + offset) &
+		fmeter_dev_ptr->ckdiv4_ca[pll_id_val].mask) >>
+		fmeter_dev_ptr->ckdiv4_ca[pll_id_val].shift;
+
 	vco_freq = ((fmeter_dev_ptr->crystal_freq >> prediv_val) *
 		(sdmpcw_val >> 8)) >> posdiv_val >> ckdiv4_val >>
 		pll_md_val >> cldiv2_val << fbksel;
 
-	if (dqsopen == 1 || dqopen == 1)
+	if ((dqsopen == 1 || dqopen == 1) && (ckdiv4_ca_val == 1))
 		vco_freq >>= 2;
+	else if ((dqsopen == 1 || dqopen == 1) && (ckdiv4_ca_val == 0))
+		vco_freq >>= 1;
 
 	return decode_freq(vco_freq);
 }

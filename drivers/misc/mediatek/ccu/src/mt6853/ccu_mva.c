@@ -34,6 +34,8 @@ static unsigned long get_ns_systemtime(void)
 {
 	struct timespec ts;
 
+	ts.tv_sec = 0;
+	ts.tv_nsec = 0;
 	getnstimeofday(&ts);
 	return ((unsigned long)(ts.tv_sec)) * 1000000000 + (ts.tv_nsec);
 }
@@ -113,9 +115,9 @@ int ccu_allocate_mva(uint32_t *mva, void *va,
 		return ret;
 	}
 
-	*handle = _ccu_ion_alloc(_ccu_ion_client,
-			ION_HEAP_MULTIMEDIA_MAP_MVA_MASK,
-			(unsigned long)va, buffer_size, false, false);
+	// *handle = _ccu_ion_alloc(_ccu_ion_client,
+	// ION_HEAP_MULTIMEDIA_MAP_MVA_MASK,
+	// (unsigned long)va, buffer_size, false, false);
 
 	/*i2c dma buffer is PAGE_SIZE(4096B)*/
 
@@ -149,7 +151,7 @@ int ccu_config_m4u_port(void)
 	port.domain = 2;
 	port.Distance = 1;
 	port.Direction = 0;
-	strcpy(port.name, "L13_CAM_CCUI_MDP");
+	strncpy(port.name, "L13_CAM_CCUI_MDP", sizeof(port.name));
 	LOG_DBG_MUST("ioctl MTK_M4U_T_CONFIG_PORT L13_CAM_CCUI_MDP, %d\n", M4U_PORT_L13_CAM_CCUI);
 
 	ret = m4u_config_port(&port);
@@ -160,7 +162,7 @@ int ccu_config_m4u_port(void)
 	port.domain = 2;
 	port.Distance = 1;
 	port.Direction = 0;
-	strcpy(port.name, "L13_CAM_CCUO_MDP");
+	strncpy(port.name, "L13_CAM_CCUO_MDP", sizeof(port.name));
 	LOG_DBG_MUST("ioctl MTK_M4U_T_CONFIG_PORT L13_CAM_CCUO_MDP, %d\n", M4U_PORT_L13_CAM_CCUO);
 
 	ret = m4u_config_port(&port);
@@ -186,18 +188,6 @@ int ccu_allocate_mem(struct CcuMemHandle *memHandle, int size, bool cached)
 	}
 
 	LOG_DBG_MUST("memHandle->ionHandleKd(%p)\n", memHandle->ionHandleKd);
-	// get ion buffer share handle
-	memHandle->meminfo.shareFd = ion_share_dma_buf_fd(_ccu_ion_client,
-		memHandle->ionHandleKd);
-	if (memHandle->meminfo.shareFd < 0) {
-		LOG_ERR("fail to get ion buffer share handle");
-		ion_free(_ccu_ion_client, memHandle->ionHandleKd);
-		if ((memHandle->meminfo.ion_log) && (size > ION_LOG_SIZE))  //10M
-			LOG_INF_MUST("ion free size = %d, caller = CCU\n", size);
-
-		return -1;
-	}
-	LOG_DBG_MUST("memHandle->share_fd(%d)\n", memHandle->meminfo.shareFd);
 
 	// get buffer virtual address
 	memHandle->meminfo.size = size;
@@ -227,25 +217,30 @@ int ccu_allocate_mem(struct CcuMemHandle *memHandle, int size, bool cached)
 
 int ccu_deallocate_mem(struct CcuMemHandle *memHandle)
 {
-	LOG_DBG_MUST("free import ion: share_fd %d",
-		memHandle->meminfo.shareFd);
-	LOG_DBG_MUST("0x%lx\n", memHandle->meminfo.va);
+	uint32_t idx = (memHandle->meminfo.cached != 0) ? 1 : 0;
 
+	LOG_DBG_MUST("free idx(%d) mva(0x%x) fd(0x%x)\n", idx,
+		ccu_buffer_handle[idx].meminfo.mva,
+		ccu_buffer_handle[idx].meminfo.shareFd);
+	if (ccu_buffer_handle[idx].ionHandleKd == 0) {
+		LOG_ERR("idx %d handle %d is empty\n", idx,
+			ccu_buffer_handle[idx].ionHandleKd);
+		return -EINVAL;
+	}
 	ion_unmap_kernel(_ccu_ion_client,
-		ccu_buffer_handle[memHandle->meminfo.cached].ionHandleKd);
-	__close_fd(current->files,
-		ccu_buffer_handle[memHandle->meminfo.cached].meminfo.shareFd);
+		ccu_buffer_handle[idx].ionHandleKd);
 	ion_free(_ccu_ion_client,
-		ccu_buffer_handle[memHandle->meminfo.cached].ionHandleKd);
+		ccu_buffer_handle[idx].ionHandleKd);
 	if ((memHandle->meminfo.ion_log) && (memHandle->meminfo.size > ION_LOG_SIZE))  //10M
 		LOG_INF_MUST("ion free size = %d, caller = CCU\n", memHandle->meminfo.size);
 
-	memset(&(ccu_buffer_handle[memHandle->meminfo.cached]), 0,
+	memset(&(ccu_buffer_handle[idx]), 0,
 		sizeof(struct CcuMemHandle));
 
 	return 0;
-
 }
+
+#define ION_FLAG_FREE_WITHOUT_DEFER (4)
 
 static struct ion_handle *_ccu_ion_alloc(struct ion_client *client,
 	unsigned int heap_id_mask, size_t align, unsigned int size, bool cached, bool ion_log)
@@ -256,7 +251,7 @@ static struct ion_handle *_ccu_ion_alloc(struct ion_client *client,
 	if (ion_log)
 		ts_start = get_ns_systemtime();
 	disp_handle = ion_alloc(client, size, align,
-		heap_id_mask, (cached)?3:0);
+		heap_id_mask, ((cached)?3:0) | ION_FLAG_FREE_WITHOUT_DEFER);
 	if (IS_ERR(disp_handle)) {
 		LOG_ERR("disp_ion_alloc 1error %p\n", disp_handle);
 		return NULL;
@@ -302,9 +297,6 @@ static int _ccu_ion_get_mva(struct ion_client *client,
 		CCU_CTRL_BUFS_LOWER_BOUND;
 		mm_data.config_buffer_param.reserve_iova_end =
 		CCU_CTRL_BUFS_UPPER_BOUND;
-	} else {
-		mm_data.config_buffer_param.reserve_iova_start = 0x10000000;
-		mm_data.config_buffer_param.reserve_iova_end = 0xFFFFFFFF;
 	}
 
 	if (ion_kernel_ioctl(client, ION_CMD_MULTIMEDIA,

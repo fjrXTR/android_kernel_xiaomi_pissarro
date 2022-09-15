@@ -483,6 +483,12 @@ config ACCESS_RAMOOPS
 	  for the Resume on Reboot feature.
 	  Say 'y' if ramoops is encrypted.
 
+config GPIO_TESTING_MODE
+	tristate "A simple GPIO testing mode driver"
+	default n
+	help
+	  Enable driver for a simple testing mode detection
+
 config VEXPRESS_SYSCFG
 	bool "Versatile Express System Configuration driver"
 	depends on VEXPRESS_CONFIG
@@ -536,6 +542,19 @@ config MEMORY_STATE_TIME
 	depends on PROFILING
 	help
 	  Memory time statistics exported to /sys/kernel/memory_state_time
+
+config FACTORY_BUILD
+	bool "distiguish factory version from dev version"
+	default n
+	help
+	  This macro will be defined when build factory version. It is used to
+	  distinguish factory and dev codes in kernel.
+
+config SIMTRAY_STATUS
+	tristate "Xiaomi SIM tray status"
+	default n
+	help
+	  Say 'y' here to support SIM tray GPIO detection
 
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"

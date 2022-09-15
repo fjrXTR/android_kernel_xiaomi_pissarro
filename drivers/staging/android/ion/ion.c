@@ -755,7 +755,9 @@ struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 			 (unsigned long)client, (unsigned long)handle);
 
 #ifdef CONFIG_MTK_ION
+#ifdef ION_HISTORY_RECORD
 	ion_history_count_kick(true, len);
+#endif
 #endif
 
 	handle->dbg.user_ts = end;
@@ -794,7 +796,9 @@ void ion_free_nolock(struct ion_client *client,
 	}
 	ion_handle_put_nolock(handle);
 #ifdef CONFIG_MTK_ION
+#ifdef ION_HISTORY_RECORD
 	ion_history_count_kick(false, 0);
+#endif
 #endif
 }
 
@@ -2036,8 +2040,8 @@ int ion_sync_for_device(struct ion_client *client, int fd)
 				       buffer->sg_table->nents,
 				       DMA_BIDIRECTIONAL);
 	else
-		IONMSG("%s: can not support heap type(%d) id (%d) to sync\n",
-		       __func__, buffer->heap->type, buffer->heap->id);
+		pr_err("%s: can not support heap type(%d) to sync\n",
+		       __func__, buffer->heap->type);
 #endif
 #endif
 
@@ -2674,7 +2678,7 @@ struct ion_handle *ion_drv_get_handle(struct ion_client *client,
 			mutex_unlock(&client->lock);
 			return ERR_PTR(-EINVAL);
 		}
-		ion_handle_get(handle);
+		ion_handle_get_check_overflow(handle);
 		mutex_unlock(&client->lock);
 	} else {
 		mutex_lock(&client->lock);
@@ -2739,15 +2743,12 @@ struct ion_buffer *ion_drv_file_to_buffer(struct file *file)
 
 	if (strstr(pathname, "dmabuf")) {
 		dmabuf = file->private_data;
-		if (!dmabuf) {
-			IONMSG("%s warnning, dmabuf is NULL\n", __func__);
-			goto file2buf_exit;
-		}
 		if (dmabuf->ops == &dma_buf_ops)
 			buffer = dmabuf->priv;
 	}
 
 file2buf_exit:
+
 	if (buffer)
 		return buffer;
 	else

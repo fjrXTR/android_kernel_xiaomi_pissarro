@@ -392,6 +392,14 @@ static int ssusb_rscs_init(struct ssusb_mtk *ssusb)
 {
 	int ret = 0;
 
+#ifdef CONFIG_FPGA_EARLY_PORTING
+	ret = ssusb_phy_init(ssusb);
+	ret |= ssusb_phy_power_on(ssusb);
+	if (ret)
+		dev_info(ssusb->dev, "failed to init phy on FPGA\n");
+
+	return 0;
+#else
 	ret = regulator_enable(ssusb->vusb33);
 	if (ret) {
 		dev_info(ssusb->dev, "failed to enable vusb33\n");
@@ -430,6 +438,7 @@ sys_clk_err:
 vusb33_err:
 
 	return ret;
+#endif
 }
 #endif
 
@@ -471,7 +480,13 @@ static int get_ssusb_rscs(struct platform_device *pdev, struct ssusb_mtk *ssusb)
 	struct device *dev = &pdev->dev;
 	struct resource *res;
 	int i;
+	int ret;
 
+#ifdef CONFIG_FPGA_EARLY_PORTING
+	ret = of_property_read_u32(node, "fpga_phy_ver", &ssusb->fpga_phy_ver);
+	if (ret)
+		dev_info(dev, "unknown FPGA phy version\n");
+#else
 	ssusb->vusb33 = devm_regulator_get(&pdev->dev, "vusb");
 	if (IS_ERR(ssusb->vusb33)) {
 		dev_info(dev, "failed to get vusb33\n");
@@ -508,6 +523,7 @@ static int get_ssusb_rscs(struct platform_device *pdev, struct ssusb_mtk *ssusb)
 		return PTR_ERR(ssusb->host_clk);
 	}
 
+#endif
 	ssusb->num_phys = of_count_phandle_with_args(node,
 			"phys", "#phy-cells");
 
@@ -553,6 +569,13 @@ static int get_ssusb_rscs(struct platform_device *pdev, struct ssusb_mtk *ssusb)
 	if (ssusb->dr_mode == USB_DR_MODE_PERIPHERAL)
 		return 0;
 
+	/* if host role is supported */
+	ret = ssusb_wakeup_of_property_parse(ssusb, node);
+	if (ret) {
+		dev_err(dev, "failed to parse uwk property\n");
+		return ret;
+	}
+
 	if (ssusb->dr_mode != USB_DR_MODE_OTG)
 		return 0;
 
@@ -562,6 +585,9 @@ static int get_ssusb_rscs(struct platform_device *pdev, struct ssusb_mtk *ssusb)
 	otg_sx->is_u3h_drd = of_property_read_bool(node,
 				"mediatek,usb3h-drd");
 
+#ifdef CONFIG_FPGA_EARLY_PORTING
+	/* May be no extcon in FPGA stage */
+#else
 	if (of_property_read_bool(node, "extcon")) {
 		otg_sx->edev = extcon_get_edev_by_phandle(ssusb->dev, 0);
 		if (IS_ERR(otg_sx->edev)) {
@@ -569,6 +595,7 @@ static int get_ssusb_rscs(struct platform_device *pdev, struct ssusb_mtk *ssusb)
 			return -EPROBE_DEFER;
 		}
 	}
+#endif
 
 	dev_info(dev, "dr_mode: %d, is_u3_dr: %d, is_u3h_dr: %d\n",
 		ssusb->dr_mode, otg_sx->is_u3_drd, otg_sx->is_u3h_drd);
@@ -744,6 +771,7 @@ static int __maybe_unused mtu3_suspend(struct device *dev)
 	/* ssusb_phy_power_off(ssusb); */
 	ssusb_clk_off(ssusb, ssusb->is_host);
 	ssusb_wakeup_mode_enable(ssusb);
+	ssusb_wakeup_set(ssusb, true);
 	return 0;
 }
 
@@ -757,6 +785,7 @@ static int __maybe_unused mtu3_resume(struct device *dev)
 	if (!ssusb->is_host)
 		return 0;
 
+	ssusb_wakeup_set(ssusb, false);
 	ssusb_wakeup_mode_disable(ssusb);
 	ssusb_clk_on(ssusb, ssusb->is_host);
 	/* ssusb_phy_power_on(ssusb); */
@@ -775,6 +804,7 @@ static const struct dev_pm_ops mtu3_pm_ops = {
 static const struct of_device_id mtu3_of_match[] = {
 	{.compatible = "mediatek,mt6885-mtu3",},
 	{.compatible = "mediatek,mt6853-mtu3",},
+	{.compatible = "mediatek,mt6877-mtu3",},
 	{.compatible = "mediatek,mt6873-mtu3",},
 	{.compatible = "mediatek,mt6785-mtu3",},
 	{.compatible = "mediatek,mt6771-mtu3",},

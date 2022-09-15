@@ -3,6 +3,7 @@
  *  Driver for MT6360 PMU CHG part
  *
  *  Copyright (C) 2018 Mediatek Technology Inc.
+ *  Copyright (C) 2021 XiaoMi, Inc.
  *  cy_huang <cy_huang@richtek.com>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -29,6 +30,7 @@
 #include <linux/atomic.h>
 #include <linux/wait.h>
 #include <linux/kthread.h>
+#include <linux/of_device.h>
 
 #include "../inc/mt6360_pmu.h"
 #include "../inc/mt6360_pmu_chg.h"
@@ -39,8 +41,15 @@
 /* switch USB config */
 #include <mt-plat/upmu_common.h>
 #include <mt-plat/mtk_boot.h>
+#include <linux/pmic_voter.h>
 
 #define MT6360_PMU_CHG_DRV_VERSION	"1.0.7_MTK"
+
+#define TS_VREF		1800
+#define TS_RP		24900
+
+#define MT6360_MAX_FCC	2500
+#define MT6360_MAX_ICL	2500
 
 void __attribute__ ((weak)) Charger_Detect_Init(void)
 {
@@ -49,6 +58,11 @@ void __attribute__ ((weak)) Charger_Detect_Init(void)
 void __attribute__ ((weak)) Charger_Detect_Release(void)
 {
 }
+
+enum product_name {
+	PISSARRO,
+	PISSARROPRO,
+};
 
 enum mt6360_adc_channel {
 	MT6360_ADC_VBUSDIV5,
@@ -67,12 +81,19 @@ static const char * const mt6360_adc_chan_list[] = {
 	"VBUSDIV5", "VSYS", "VBAT", "IBUS", "IBAT", "TEMP_JC", "USBID", "TS",
 };
 
+struct ntc_desc {
+	int temp;	/* 0.1 deg.C */
+	int res;	/* ohm */
+};
+
 struct mt6360_pmu_chg_info {
 	struct device *dev;
 	struct mt6360_pmu_info *mpi;
 	struct iio_channel *channels[MT6360_ADC_MAX];
-	struct power_supply *psy;
+	struct power_supply *charger_psy;
+	struct power_supply *bbc_psy;
 	struct charger_device *chg_dev;
+	struct charger_device *bbc_dev;
 	int hidden_mode_cnt;
 	struct mutex hidden_mode_lock;
 	struct mutex pe_lock;
@@ -83,6 +104,16 @@ struct mt6360_pmu_chg_info {
 	u32 zcv;
 	u32 ichg;
 	u32 ichg_dis_chg;
+
+	struct votable	*fcc_votable;
+	struct votable	*fv_votable;
+	struct votable	*icl_votable;
+	struct votable	*iterm_votable;
+	struct votable	*vinmin_votable;
+	struct votable	*enable_votable;
+
+	char model_name[20];
+	bool chip_ok;
 
 	/* Charger type detection */
 	struct mutex chgdet_lock;
@@ -142,6 +173,43 @@ enum mt6360_pmu_chg_type {
 	MT6360_CHG_TYPE_MAX,
 };
 
+static struct ntc_desc ts_ntc_table[] = {
+	{-400, 4251000},
+	{-350, 3005000},
+	{-300, 2149000},
+	{-250, 1554000},
+	{-200, 1135000},
+	{-150, 837800},
+	{-100, 624100},
+	{-50,  469100},
+	{0,    355600},
+	{50,   271800},
+	{100,  209400},
+	{150,  162500},
+	{200,  127000},
+	{250,  100000},
+	{300,  79230},
+	{350,  63180},
+	{400,  50680},
+	{450,  40900},
+	{500,  33190},
+	{550,  27090},
+	{600,  22220},
+	{650,  18320},
+	{700,  15180},
+	{750,  12640},
+	{800,  10580},
+	{850,  8887},
+	{900,  7500},
+	{950,  6357},
+	{1000, 5410},
+	{1050, 4623},
+	{1100, 3966},
+	{1150, 3415},
+	{1200, 2952},
+	{1250, 2561}
+};
+
 static const char *mt6360_chg_status_name[MT6360_CHG_STATUS_MAX] = {
 	"ready", "progress", "done", "fault",
 };
@@ -165,7 +233,59 @@ static const struct mt6360_chg_platform_data def_platform_data = {
 	.aicc_once = true,
 	.post_aicc = true,
 	.batoc_notify = false,
-	.chg_name = "primary_chg",
+	.chg_name = "pmic",
+};
+
+static int product_name = PISSARRO;
+static int log_level = 2;
+
+#define pmu_err(fmt, ...)						\
+do {									\
+	if (log_level >= 0)						\
+		printk(KERN_ERR "[XMCHG_MT6360] " fmt, ##__VA_ARGS__);	\
+} while (0)
+
+#define pmu_info(fmt, ...)						\
+do {									\
+	if (log_level >= 1)						\
+		printk(KERN_ERR "[XMCHG_MT6360] " fmt, ##__VA_ARGS__);	\
+} while (0)
+
+#define pmu_dbg(fmt, ...)						\
+do {									\
+	if (log_level >= 2)						\
+		printk(KERN_ERR "[XMCHG_MT6360] " fmt, ##__VA_ARGS__);	\
+} while (0)
+
+static ssize_t mt6360_show_log_level(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	int ret = 0;
+
+	ret = snprintf(buf, PAGE_SIZE, "%d\n", log_level);
+	pmu_info("show log_level = %d\n", log_level);
+
+	return ret;
+}
+
+static ssize_t mt6360_store_log_level(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+	int ret = 0;
+
+	ret = sscanf(buf, "%d", &log_level);
+	pmu_info("store log_level = %d\n", log_level);
+
+	return count;
+}
+
+static DEVICE_ATTR(log_level, S_IRUGO | S_IWUSR, mt6360_show_log_level, mt6360_store_log_level);
+
+static struct attribute *mt6360_attributes[] = {
+	&dev_attr_log_level.attr,
+	NULL,
+};
+
+static const struct attribute_group mt6360_attr_group = {
+	.attrs = mt6360_attributes,
 };
 
 /* ================== */
@@ -377,19 +497,19 @@ static int mt6360_psy_online_changed(struct mt6360_pmu_chg_info *mpci)
 	union power_supply_propval propval;
 
 	/* Get chg type det power supply */
-	if (!mpci->psy)
-		mpci->psy = power_supply_get_by_name("charger");
-	if (!mpci->psy) {
+	if (!mpci->charger_psy)
+		mpci->charger_psy = power_supply_get_by_name("charger");
+	if (!mpci->charger_psy) {
 		dev_notice(mpci->dev,
 			"%s: get power supply failed\n", __func__);
 		return -EINVAL;
 	}
 
 	propval.intval = mpci->attach;
-	ret = power_supply_set_property(mpci->psy, POWER_SUPPLY_PROP_ONLINE,
+	ret = power_supply_set_property(mpci->charger_psy, POWER_SUPPLY_PROP_ONLINE,
 					&propval);
 	if (ret < 0)
-		dev_err(mpci->dev, "%s: psy online fail(%d)\n", __func__, ret);
+		dev_err(mpci->dev, "%s: charger_psy online fail(%d)\n", __func__, ret);
 	else
 		dev_info(mpci->dev,
 			 "%s: pwr_rdy = %d\n",  __func__, mpci->attach);
@@ -400,38 +520,35 @@ static int mt6360_psy_online_changed(struct mt6360_pmu_chg_info *mpci)
 static int mt6360_psy_chg_type_changed(struct mt6360_pmu_chg_info *mpci)
 {
 	int ret = 0;
-#if 1 /* (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0)) */
 	union power_supply_propval propval;
 
 	/* Get chg type det power supply */
-	if (!mpci->psy)
-		mpci->psy = power_supply_get_by_name("charger");
-	if (!mpci->psy) {
+	if (!mpci->charger_psy)
+		mpci->charger_psy = power_supply_get_by_name("charger");
+	if (!mpci->charger_psy) {
 		dev_notice(mpci->dev,
 			"%s: get power supply failed\n", __func__);
 		return -EINVAL;
 	}
 
 	propval.intval = mpci->chg_type;
-	ret = power_supply_set_property(mpci->psy,
+	ret = power_supply_set_property(mpci->charger_psy,
 					POWER_SUPPLY_PROP_CHARGE_TYPE,
 					&propval);
 	if (ret < 0)
 		dev_err(mpci->dev,
-			"%s: psy type failed, ret = %d\n", __func__, ret);
+			"%s: charger_psy type failed, ret = %d\n", __func__, ret);
 	else
 		dev_info(mpci->dev,
 			 "%s: chg_type = %d\n", __func__, mpci->chg_type);
 #endif
 	return ret;
 }
-#endif /* CONFIG_MT6360_PMU_CHARGER_TYPE_DETECT */
 
 static int mt6360_set_usbsw_state(struct mt6360_pmu_chg_info *mpci, int state)
 {
 	dev_info(mpci->dev, "%s: state = %d\n", __func__, state);
 
-	/* Switch D+D- to AP/MT6360 */
 	if (state == MT6360_USBSW_CHG)
 		Charger_Detect_Init();
 	else
@@ -546,7 +663,7 @@ static int mt6360_chgdet_pre_process(struct mt6360_pmu_chg_info *mpci)
 #else
 	attach = mpci->pwr_rdy;
 #endif /* CONFIG_TCPC_CLASS */
-	if (attach && is_meta_mode()) {
+	if (true) {
 		/* Skip charger type detection to speed up meta boot.*/
 		dev_notice(mpci->dev, "%s: force Standard USB Host in meta\n",
 			   __func__);
@@ -555,7 +672,7 @@ static int mt6360_chgdet_pre_process(struct mt6360_pmu_chg_info *mpci)
 		ret = mt6360_psy_online_changed(mpci);
 		if (ret < 0)
 			dev_notice(mpci->dev,
-				   "%s: set psy online fail\n", __func__);
+				   "%s: set charger_psy online fail\n", __func__);
 		return mt6360_psy_chg_type_changed(mpci);
 	}
 	return __mt6360_enable_usbchgen(mpci, attach);
@@ -619,7 +736,7 @@ out:
 		return ret;
 	ret = mt6360_psy_online_changed(mpci);
 	if (ret < 0)
-		dev_err(mpci->dev, "%s: report psy online fail\n", __func__);
+		dev_err(mpci->dev, "%s: report charger_psy online fail\n", __func__);
 	return mt6360_psy_chg_type_changed(mpci);
 }
 #endif /* CONFIG_MT6360_PMU_CHARGER_TYPE_DETECT */
@@ -988,12 +1105,19 @@ static int mt6360_enable_te(struct charger_device *chg_dev, bool en)
 {
 	struct mt6360_pmu_chg_info *mpci = charger_get_data(chg_dev);
 	struct mt6360_chg_platform_data *pdata = dev_get_platdata(mpci->dev);
-
+	int ret = 0;
 	dev_info(mpci->dev, "%s: en = %d\n", __func__, en);
 	if (!pdata->en_te)
 		return 0;
-	return mt6360_pmu_reg_update_bits(mpci->mpi, MT6360_PMU_CHG_CTRL2,
+	ret = mt6360_pmu_reg_update_bits(mpci->mpi, MT6360_PMU_CHG_CTRL2,
 					  MT6360_MASK_TE_EN, en ? 0xff : 0);
+	if (ret < 0)
+		return ret;
+	ret = mt6360_pmu_reg_update_bits(mpci->mpi, MT6360_PMU_CHG_CTRL9,
+					  MT6360_MASK_EOC_EN, en ? 0xff : 0);
+	if (ret < 0)
+		return ret;
+	return 0;
 }
 
 static int mt6360_enable_pump_express(struct mt6360_pmu_chg_info *mpci,
@@ -1077,16 +1201,6 @@ static int mt6360_set_pep20_efficiency_table(struct charger_device *chg_dev)
 	if (!chg_mgr)
 		return -EINVAL;
 
-	chg_mgr->pe2.profile[0].vchr = 8000000;
-	chg_mgr->pe2.profile[1].vchr = 8000000;
-	chg_mgr->pe2.profile[2].vchr = 8000000;
-	chg_mgr->pe2.profile[3].vchr = 8500000;
-	chg_mgr->pe2.profile[4].vchr = 8500000;
-	chg_mgr->pe2.profile[5].vchr = 8500000;
-	chg_mgr->pe2.profile[6].vchr = 9000000;
-	chg_mgr->pe2.profile[7].vchr = 9000000;
-	chg_mgr->pe2.profile[8].vchr = 9500000;
-	chg_mgr->pe2.profile[9].vchr = 9500000;
 	return 0;
 }
 
@@ -1545,17 +1659,25 @@ static int mt6360_get_adc(struct charger_device *chg_dev, enum adc_channel chan,
 static int mt6360_get_vbus(struct charger_device *chg_dev, u32 *vbus)
 {
 	struct mt6360_pmu_chg_info *mpci = charger_get_data(chg_dev);
+	int ret = 0;
 
 	mt_dbg(mpci->dev, "%s\n", __func__);
-	return mt6360_get_adc(chg_dev, ADC_CHANNEL_VBUS, vbus, vbus);
+	ret = mt6360_get_adc(chg_dev, ADC_CHANNEL_VBUS, vbus, vbus);
+	*vbus /= 1000;
+
+	return ret;
 }
 
 static int mt6360_get_ibus(struct charger_device *chg_dev, u32 *ibus)
 {
 	struct mt6360_pmu_chg_info *mpci = charger_get_data(chg_dev);
+	int ret = 0;
 
 	mt_dbg(mpci->dev, "%s\n", __func__);
-	return mt6360_get_adc(chg_dev, ADC_CHANNEL_IBUS, ibus, ibus);
+	ret = mt6360_get_adc(chg_dev, ADC_CHANNEL_IBUS, ibus, ibus);
+	*ibus /= 1000;
+
+	return ret;
 }
 
 static int mt6360_get_ibat(struct charger_device *chg_dev, u32 *ibat)
@@ -1592,6 +1714,40 @@ static int mt6360_get_tchg(struct charger_device *chg_dev,
 	*tchg_min = *tchg_max = temp_jc;
 	dev_info(mpci->dev, "%s: tchg = %d\n", __func__, temp_jc);
 	return 0;
+}
+
+static int mt6360_get_ts_temp(struct charger_device *chg_dev, int *value)
+{
+	struct mt6360_pmu_chg_info *mpci = charger_get_data(chg_dev);
+	int size = sizeof(ts_ntc_table) / sizeof(ts_ntc_table[0]);
+	int volt = 0, res = 0, lower = 0, upper = 0, i = 0, ret = 0;
+
+	ret = mt6360_get_adc(chg_dev, ADC_CHANNEL_TS, &volt, &volt);
+	if (ret) {
+		dev_err(mpci->dev, "%s: failed to read ADC_CHANNEL_TS, ret = %d\n", __func__, ret);
+		return ret;
+	}
+
+	volt /= 1000;
+	res = TS_RP * volt / (TS_VREF - volt);
+
+	if (res >= ts_ntc_table[0].res)
+		return ts_ntc_table[0].temp;
+	else if (res <= ts_ntc_table[size - 1].res)
+		return ts_ntc_table[size - 1].temp;
+
+	for (i = 0; i < size; i++) {
+		if (res >= ts_ntc_table[i].res) {
+			upper = i;
+			break;
+		}
+		lower = i;
+	}
+
+	*value = (ts_ntc_table[lower].temp * (res - ts_ntc_table[upper].res) + ts_ntc_table[upper].temp *
+			(ts_ntc_table[lower].res - res)) / (ts_ntc_table[lower].res - ts_ntc_table[upper].res);
+
+	return ret;
 }
 
 static int mt6360_kick_wdt(struct charger_device *chg_dev)
@@ -1785,15 +1941,15 @@ static int mt6360_plug_in(struct charger_device *chg_dev)
 	}
 
 	/* Workaround for ibus stuck in pe/pe20 pattern */
-	if (!mpci->psy)
-		mpci->psy = power_supply_get_by_name("charger");
-	if (!mpci->psy) {
+	if (!mpci->charger_psy)
+		mpci->charger_psy = power_supply_get_by_name("charger");
+	if (!mpci->charger_psy) {
 		dev_notice(mpci->dev,
 			"%s: get power supply failed\n", __func__);
 		return -EINVAL;
 	}
 
-	ret = power_supply_get_property(mpci->psy,
+	ret = power_supply_get_property(mpci->charger_psy,
 					POWER_SUPPLY_PROP_CHARGE_TYPE,
 					&propval);
 	if (ret < 0) {
@@ -1875,12 +2031,34 @@ static int mt6360_get_ctd_dischg_status(struct charger_device *chg_dev,
 	return 0;
 }
 
+static int ops_mt6360_is_enable(struct charger_device *chg_dev, bool *enable)
+{
+	struct mt6360_pmu_chg_info *mpci = charger_get_data(chg_dev);
+
+	return mt6360_is_charger_enabled(mpci, enable);
+}
+
+static int ops_mt6360_get_charge_status(struct charger_device *chg_dev, int *value)
+{
+	struct mt6360_pmu_chg_info *mpci = charger_get_data(chg_dev);
+	enum mt6360_charging_status chg_stat;
+	int ret = 0;
+
+	ret = mt6360_get_charging_status(mpci, &chg_stat);
+	if (ret)
+		chg_stat = MT6360_CHG_STATUS_READY;
+	*value = chg_stat;
+
+	return ret;
+}
+
 static const struct charger_ops mt6360_chg_ops = {
 	/* cable plug in/out */
 	.plug_in = mt6360_plug_in,
 	.plug_out = mt6360_plug_out,
 	/* enable */
 	.enable = mt6360_enable,
+	.is_enabled = ops_mt6360_is_enable,
 	/* charging current */
 	.set_charging_current = mt6360_set_ichg,
 	.get_charging_current = mt6360_get_ichg,
@@ -1925,6 +2103,7 @@ static const struct charger_ops mt6360_chg_ops = {
 	.get_ibus_adc = mt6360_get_ibus,
 	.get_ibat_adc = mt6360_get_ibat,
 	.get_tchg_adc = mt6360_get_tchg,
+	.get_ts_temp = mt6360_get_ts_temp,
 	/* kick wdt */
 	.kick_wdt = mt6360_kick_wdt,
 	/* misc */
@@ -1944,11 +2123,96 @@ static const struct charger_ops mt6360_chg_ops = {
 	.get_ctd_dischg_status = mt6360_get_ctd_dischg_status,
 	.enable_hidden_mode = mt6360_enable_hidden_mode,
 	.enable_hz = mt6360_enable_hz,
+	.get_charge_status = ops_mt6360_get_charge_status,
 };
 
 static const struct charger_properties mt6360_chg_props = {
-	.alias_name = "mt6360_chg",
+	.alias_name = "pmic",
 };
+
+static const struct charger_properties mt6360_bbc_chg_props = {
+	.alias_name = "bbc",
+};
+
+static enum power_supply_property mt6360_properties[] = {
+	POWER_SUPPLY_PROP_MODEL_NAME,
+	POWER_SUPPLY_PROP_ONLINE,
+	POWER_SUPPLY_PROP_CHIP_OK,
+	POWER_SUPPLY_PROP_CHARGE_ENABLED,
+	POWER_SUPPLY_PROP_CHARGE_STATUS,
+	POWER_SUPPLY_PROP_VOLTAGE_NOW,
+	POWER_SUPPLY_PROP_CURRENT_NOW,
+};
+
+static int mt6360_get_property(struct power_supply *psy, enum power_supply_property prop, union power_supply_propval *val)
+{
+	struct mt6360_pmu_chg_info *mpci = power_supply_get_drvdata(psy);
+	enum mt6360_charging_status chg_stat;
+	bool enable = false;
+	int ret = 0;
+
+	switch (prop) {
+	case POWER_SUPPLY_PROP_MODEL_NAME:
+		val->strval = mpci->model_name;
+		break;
+	case POWER_SUPPLY_PROP_ONLINE:
+	case POWER_SUPPLY_PROP_CHIP_OK:
+		val->intval = mpci->chip_ok;
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_ENABLED:
+		ret = mt6360_is_charger_enabled(mpci, &enable);
+		if (ret)
+			return ret;
+		val->intval = enable;
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_STATUS:
+		ret = mt6360_get_charging_status(mpci, &chg_stat);
+		if (ret)
+			chg_stat = MT6360_CHG_STATUS_READY;
+		val->intval = chg_stat;
+		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
+		ret = mt6360_get_adc(mpci->chg_dev, ADC_CHANNEL_VBUS, &val->intval, &val->intval);
+		if (ret)
+			val->intval = 0;
+		val->intval /= 1000;
+		break;
+	case POWER_SUPPLY_PROP_CURRENT_NOW:
+		ret = mt6360_get_adc(mpci->chg_dev, ADC_CHANNEL_IBUS, &val->intval, &val->intval);
+		if (ret)
+			val->intval = 0;
+		val->intval /= 1000;
+		break;
+	default:
+		pmu_err("not support property %d\n", prop);
+		return -ENODATA;
+	}
+
+	return ret;
+}
+
+static const struct power_supply_desc mt6360_psy_desc = {
+	.name = "bbc",
+	.type = POWER_SUPPLY_TYPE_UNKNOWN,
+	.properties = mt6360_properties,
+	.num_properties = ARRAY_SIZE(mt6360_properties),
+	.get_property = mt6360_get_property,
+};
+
+static int mt6360_init_psy(struct mt6360_pmu_chg_info *mpci)
+{
+	struct power_supply_config mt6360_psy_cfg = {};
+
+	mt6360_psy_cfg.drv_data = mpci;
+	mt6360_psy_cfg.of_node = mpci->dev->of_node;
+	mpci->bbc_psy = devm_power_supply_register(mpci->dev, &mt6360_psy_desc, &mt6360_psy_cfg);
+	if (IS_ERR(mpci->bbc_psy)) {
+		pmu_err("failed to register bbc_psy\n");
+		return -1;
+	}
+
+	return 0;
+}
 
 static irqreturn_t mt6360_pmu_chg_treg_evt_handler(int irq, void *data)
 {
@@ -2686,6 +2950,15 @@ static int mt6360_chg_init_setting(struct mt6360_pmu_chg_info *mpci)
 				"%s: clear BATSYSUV fail\n", __func__);
 	}
 
+	if (strnstr(saved_command_line, "pissarropro", strlen(saved_command_line)) ||
+		strnstr(saved_command_line, "pissarroinpro", strlen(saved_command_line))) {
+		ret = mt6360_pmu_reg_set_bits(mpci->mpi, MT6360_PMU_CHG_PUMP, 0x80);
+		if (ret < 0)
+			dev_err(mpci->dev,  "%s: close QON Failed!\n", __func__);
+		else
+			dev_err(mpci->dev,  "%s: close QON OK!\n", __func__);
+	}
+
 	/* USBID ID_TD = 32T */
 	ret = mt6360_pmu_reg_update_bits(mpci->mpi, MT6360_PMU_USBID_CTRL2,
 					 MT6360_MASK_IDTD |
@@ -2693,6 +2966,11 @@ static int mt6360_chg_init_setting(struct mt6360_pmu_chg_info *mpci)
 	/* Disable TypeC OTP for check EVB version by TS pin */
 	ret = mt6360_pmu_reg_clr_bits(mpci->mpi, MT6360_PMU_TYPEC_OTP_CTRL,
 				      MT6360_MASK_TYPEC_OTP_EN);
+	/*Set the vrech to 200mV*/
+	ret = mt6360_pmu_reg_update_bits(mpci->mpi,
+					 MT6360_PMU_CHG_CTRL11,
+					 MT6360_MASK_VRECH,
+					 0x03);
 	return ret;
 }
 
@@ -2779,6 +3057,164 @@ void mt6360_recv_batoc_callback(BATTERY_OC_LEVEL tag)
 		 pmic_get_register_value(PMIC_RG_INT_STATUS_FG_CUR_H));
 }
 
+static int mt6360_fcc_vote_callback(struct votable *votable, void *data, int value, const char *client)
+{
+	struct mt6360_pmu_chg_info *mpci = data;
+	int ret = 0;
+
+	if (value > MT6360_MAX_FCC)
+		value = MT6360_MAX_FCC;
+
+	pmu_info("vote FCC = %d\n", value);
+	ret = mt6360_set_ichg(mpci->chg_dev, value * 1000);
+	if (ret) {
+		pmu_err("failed to set FCC\n");
+		return ret;
+	}
+
+	return ret;
+}
+
+static int mt6360_fv_vote_callback(struct votable *votable, void *data, int value, const char *client)
+{
+	struct mt6360_pmu_chg_info *mpci = data;
+	int ret = 0;
+
+	pmu_info("vote FV = %d\n", value);
+
+	ret = mt6360_set_cv(mpci->chg_dev, value * 1000);
+	if (ret) {
+		pmu_err("failed to set FV\n");
+		return ret;
+	}
+
+	return ret;
+}
+
+static int mt6360_icl_vote_callback(struct votable *votable, void *data, int value, const char *client)
+{
+	struct mt6360_pmu_chg_info *mpci = data;
+	int ret = 0;
+
+	if (value > MT6360_MAX_ICL)
+		value = MT6360_MAX_ICL;
+
+	pmu_info("vote ICL = %d\n", value);
+	ret = mt6360_set_aicr(mpci->chg_dev, value * 1000);
+	if (ret) {
+		pmu_err("failed to set IINLIM0\n");
+		return ret;
+	}
+	return ret;
+}
+
+static int mt6360_iterm_vote_callback(struct votable *votable, void *data, int value, const char *client)
+{
+	struct mt6360_pmu_chg_info *mpci = data;
+	int ret = 0;
+
+	pmu_info("vote ITERM = %d\n", value);
+
+	ret = mt6360_set_ieoc(mpci->chg_dev, value * 1000);
+	if (ret) {
+		pmu_err("failed to set ITERM\n");
+		return ret;
+	}
+
+	return ret;
+}
+
+static int mt6360_vinmin_vote_callback(struct votable *votable, void *data, int value, const char *client)
+{
+	struct mt6360_pmu_chg_info *mpci = data;
+	int ret = 0;
+
+	pmu_info("vote VINMIN = %d\n", value);
+
+	ret = mt6360_set_mivr(mpci->chg_dev, value * 1000);
+	if (ret) {
+		pmu_err("failed to set VINMIN\n");
+		return ret;
+	}
+
+	return ret;
+}
+
+static int mt6360_enable_vote_callback(struct votable *votable, void *data, int enable, const char *client)
+{
+	struct mt6360_pmu_chg_info *mpci = data;
+	int ret = 0;
+
+	pmu_info("vote MT6360_ENABLE = %d\n", enable);
+
+	ret = mt6360_enable(mpci->chg_dev, enable);
+	if (ret) {
+		pmu_err("failed to set MP2762_ENABLE\n");
+		return ret;
+	}
+
+	return ret;
+}
+
+static int mt6360_create_votable(struct mt6360_pmu_chg_info *mpci)
+{
+	int rc = 0;
+
+	mpci->fcc_votable = create_votable("BBC_FCC", VOTE_MIN, mt6360_fcc_vote_callback, mpci);
+	if (IS_ERR(mpci->fcc_votable)) {
+		pmu_err("failed to create voter BBC_FCC\n");
+		return -1;
+	}
+
+	mpci->fv_votable = create_votable("BBC_FV", VOTE_MIN, mt6360_fv_vote_callback, mpci);
+	if (IS_ERR(mpci->fv_votable)) {
+		pmu_err("failed to create voter BBC_FV\n");
+		return -1;
+	}
+
+	mpci->icl_votable = create_votable("BBC_ICL", VOTE_MIN, mt6360_icl_vote_callback, mpci);
+	if (IS_ERR(mpci->icl_votable)) {
+		pmu_err("failed to create voter BBC_ICL\n");
+		return -1;
+	}
+
+	mpci->iterm_votable = create_votable("BBC_ITERM", VOTE_MIN, mt6360_iterm_vote_callback, mpci);
+	if (IS_ERR(mpci->iterm_votable)) {
+		pmu_err("failed to create voter BBC_ITERM\n");
+		return -1;
+	}
+
+	mpci->vinmin_votable = create_votable("BBC_VINMIN", VOTE_MIN, mt6360_vinmin_vote_callback, mpci);
+	if (IS_ERR(mpci->vinmin_votable)) {
+		pmu_err("failed to create voter BBC_VINMIN\n");
+		return -1;
+	}
+
+	mpci->enable_votable = create_votable("BBC_ENABLE", VOTE_SET_ANY, mt6360_enable_vote_callback, mpci);
+	if (IS_ERR(mpci->enable_votable)) {
+		pmu_err("failed to create voter BBC_ENABLE\n");
+		return -1;
+	}
+
+	return rc;
+}
+
+static void mt6360_parse_cmdline(void)
+{
+	char *pissarro = NULL, *pissarropro = NULL, *pissarroinpro = NULL;
+
+	pissarro = strnstr(saved_command_line, "pissarro", strlen(saved_command_line));
+	pissarropro = strnstr(saved_command_line, "pissarropro", strlen(saved_command_line));
+	pissarroinpro = strnstr(saved_command_line, "pissarroinpro", strlen(saved_command_line));
+
+	pmu_info("pissarro = %d, pissarropro = %d, pissarroinpro = %d\n", pissarro ? 1 : 0, pissarropro ? 1 : 0, pissarroinpro ? 1 : 0);
+
+	if (pissarropro || pissarroinpro)
+		product_name = PISSARROPRO;
+	else if (pissarro)
+		product_name = PISSARRO;
+}
+
 static int mt6360_pmu_chg_probe(struct platform_device *pdev)
 {
 	struct mt6360_chg_platform_data *pdata = dev_get_platdata(&pdev->dev);
@@ -2788,7 +3224,10 @@ static int mt6360_pmu_chg_probe(struct platform_device *pdev)
 	int i, ret = 0;
 	char *p;
 
-	dev_info(&pdev->dev, "%s\n", __func__);
+	pmu_info("MT6360_PMU probe start\n");
+
+	mt6360_parse_cmdline();
+
 	if (use_dt) {
 		pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
 		if (!pdata)
@@ -2846,6 +3285,12 @@ static int mt6360_pmu_chg_probe(struct platform_device *pdev)
 		goto err_mutex_init;
 	}
 
+	if(mt6360_pmu_reg_write(mpci->mpi, MT6360_PMU_CHG_CTRL18, 0x00) < 0) {
+		dev_err(&pdev->dev, "disable IR Compensation failed!\n");
+	} else {
+		dev_err(&pdev->dev, "disable IR Compensation OK!\n");
+	}
+
 	/* Get ADC iio channels */
 	for (i = 0; i < MT6360_ADC_MAX; i++) {
 		channel = devm_iio_channel_get(&pdev->dev,
@@ -2865,6 +3310,33 @@ static int mt6360_pmu_chg_probe(struct platform_device *pdev)
 		dev_err(mpci->dev, "charger device register fail\n");
 		ret = PTR_ERR(mpci->chg_dev);
 		goto err_mutex_init;
+	}
+
+	if (product_name == PISSARRO) {
+		mpci->bbc_dev = charger_device_register("bbc", mpci->dev, mpci, &mt6360_chg_ops, &mt6360_bbc_chg_props);
+		if (IS_ERR(mpci->bbc_dev)) {
+			pmu_err("failed to register bbc_dev\n");
+			ret = PTR_ERR(mpci->bbc_dev);
+			goto err_mutex_init;
+		}
+
+		ret = mt6360_create_votable(mpci);
+		if (ret) {
+			pmu_err("failed to create voter\n");
+			return ret;
+		}
+
+		ret = mt6360_init_psy(mpci);
+		if (ret) {
+			pmu_err("failed to init psy\n");
+			return ret;
+		}
+	}
+
+	ret = sysfs_create_group(&mpci->dev->kobj, &mt6360_attr_group);
+	if (ret) {
+		pmu_err("failed to register sysfs\n");
+		return ret;
 	}
 
 	/* irq register */
@@ -2907,12 +3379,16 @@ static int mt6360_pmu_chg_probe(struct platform_device *pdev)
 && !defined(CONFIG_TCPC_CLASS)
 	schedule_work(&mpci->chgdet_work);
 #endif /* CONFIG_MT6360_PMU_CHARGER_TYPE_DETECT && !CONFIG_TCPC_CLASS */
-	dev_info(&pdev->dev, "%s: successfully probed\n", __func__);
+	strcpy(mpci->model_name, "mt6360");
+	mpci->chip_ok = true;
+	pmu_info("MT6360_PMU probe success\n");
 	return 0;
 err_shipping_mode_attr:
 	device_remove_file(mpci->dev, &dev_attr_shipping_mode);
 err_register_chg_dev:
+	sysfs_remove_group(&mpci->dev->kobj, &mt6360_attr_group);
 	charger_device_unregister(mpci->chg_dev);
+	charger_device_unregister(mpci->bbc_dev);
 err_mutex_init:
 	mutex_destroy(&mpci->tchg_lock);
 	mutex_destroy(&mpci->chgdet_lock);
@@ -2935,7 +3411,9 @@ static int mt6360_pmu_chg_remove(struct platform_device *pdev)
 		wake_up(&mpci->waitq);
 	}
 	device_remove_file(mpci->dev, &dev_attr_shipping_mode);
+	sysfs_remove_group(&mpci->dev->kobj, &mt6360_attr_group);
 	charger_device_unregister(mpci->chg_dev);
+	charger_device_unregister(mpci->bbc_dev);
 	mutex_destroy(&mpci->tchg_lock);
 	mutex_destroy(&mpci->chgdet_lock);
 	mutex_destroy(&mpci->aicr_lock);

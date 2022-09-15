@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -94,9 +95,23 @@ struct mtk_battery gm;
 bool gauge_get_current(int *bat_current)
 {
 	bool is_charging = false;
+	union power_supply_propval ibat_val = {0};
+	int ret = 0;
 
 	if (is_fg_disabled()) {
-		*bat_current = 0;
+		if (battery_main.USE_TI_GAUGE && battery_main.ti_bms_psy) {
+			ret = power_supply_get_property(battery_main.ti_bms_psy,
+					POWER_SUPPLY_PROP_CURRENT_NOW, &ibat_val);
+			if (!ret) {
+				*bat_current = ibat_val.intval;
+				is_charging = (ibat_val.intval < 0)?true:false;
+			} else {
+				bm_err("%s get ti_bms ibat failed, ret:%d \n", __func__, ret);
+				*bat_current = 0;
+			}
+		} else {
+			*bat_current = 0;
+		}
 		return is_charging;
 	}
 
@@ -2428,12 +2443,12 @@ void fg_bat_temp_int_init(void)
 
 	if (fg_interrupt_check() == false)
 		return;
-#if defined(CONFIG_MTK_DISABLE_GAUGE) || defined(FIXED_TBAT_25)
+
 	tmp = 1;
 	fg_bat_new_ht = 1;
 	fg_bat_new_lt = 1;
 	return;
-#else
+
 	tmp = force_get_tbat(true);
 
 	fg_bat_new_ht = TempToBattVolt(tmp + 1, 1);
@@ -2445,7 +2460,7 @@ void fg_bat_temp_int_init(void)
 		gm.gdev, true, fg_bat_new_lt);
 	gauge_dev_enable_battery_tmp_ht_interrupt(
 		gm.gdev, true, fg_bat_new_ht);
-#endif
+
 }
 
 void fg_bat_temp_int_internal(void)
@@ -2459,14 +2474,14 @@ void fg_bat_temp_int_internal(void)
 		return;
 	}
 
-#if defined(CONFIG_MTK_DISABLE_GAUGE) || defined(FIXED_TBAT_25)
+
 	battery_main.BAT_batt_temp = 25;
 	battery_update(&battery_main);
 	tmp = 1;
 	fg_bat_new_ht = 1;
 	fg_bat_new_lt = 1;
 	return;
-#else
+
 	tmp = force_get_tbat(true);
 
 	gauge_dev_enable_battery_tmp_lt_interrupt(gm.gdev, false, 0);
@@ -2503,7 +2518,6 @@ void fg_bat_temp_int_internal(void)
 
 	battery_main.BAT_batt_temp = tmp;
 	battery_update(&battery_main);
-#endif
 }
 
 void fg_bat_temp_int_l_handler(void)

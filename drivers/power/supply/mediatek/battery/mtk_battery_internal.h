@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 MediaTek Inc.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -658,6 +659,7 @@ struct fgd_cmd_param_t_custom {
 struct battery_data {
 	struct power_supply_desc psd;
 	struct power_supply *psy;
+	struct power_supply *ti_bms_psy;
 	int BAT_STATUS;
 	int BAT_HEALTH;
 	int BAT_PRESENT;
@@ -666,6 +668,8 @@ struct battery_data {
 	/* Add for Battery Service */
 	int BAT_batt_vol;
 	int BAT_batt_temp;
+	/* Add for External Gauge */
+	bool USE_TI_GAUGE;
 };
 
 struct BAT_EC_Struct {
@@ -956,7 +960,6 @@ enum {
 	DLPT_SHUTDOWN,
 	SHUTDOWN_FACTOR_MAX
 };
-
 
 extern struct mtk_battery gm;
 extern struct battery_data battery_main;
