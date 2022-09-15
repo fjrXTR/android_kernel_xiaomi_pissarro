@@ -445,6 +445,7 @@ static inline int scsi_execute_req(struct scsi_device *sdev,
 	unsigned bufflen, struct scsi_sense_hdr *sshdr, int timeout,
 	int retries, int *resid)
 {
+	pr_err("ufs: scsi_execute_req bufflen = 0x%x\n", bufflen);
 	return scsi_execute(sdev, cmd, data_direction, buffer,
 		bufflen, NULL, sshdr, timeout, retries,  0, 0, resid);
 }
