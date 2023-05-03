@@ -456,13 +456,7 @@ static void mtk_spi_prepare_transfer(struct spi_master *master,
 		reg_val |= (((sck_time - 1) & 0xffff)
 			   << SPI_CFG2_SCK_LOW_OFFSET);
 		writel(reg_val, mdata->base + SPI_CFG2_REG);
-<<<<<<< HEAD
-
-		reg_val = 0;
-		reg_val |= (((cs_holdtime - 1) & 0xffff)
-=======
 		reg_val = (((cs_time - 1) & 0xffff)
->>>>>>> e761f59736bafbf095575565f82ef82652aca4ba
 			   << SPI_ADJUST_CFG0_CS_HOLD_OFFSET);
 		reg_val |= (((cs_setuptime - 1) & 0xffff)
 			   << SPI_ADJUST_CFG0_CS_SETUP_OFFSET);
